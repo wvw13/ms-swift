@@ -5,3 +5,4 @@ accelerate==1.12.0
 numpy==2.3.5
 Pillow==12.0.0
 qwen-vl-utils==0.0.14
+torchvision==0.24.1

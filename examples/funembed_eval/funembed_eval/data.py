@@ -3,8 +3,17 @@ from dataclasses import dataclass
 from pathlib import Path
 import hashlib,json,re
 
-CLASSES=json.loads(Path(__file__).with_name('classes.json').read_text())
-N_CLASSES=len(CLASSES)
+N_CLASSES=22
+CLASSES=[{'id':i,'label':f'synthetic_class_{i}','text':f'SYNTHETIC class {i}'} for i in range(N_CLASSES)]
+
+def configure_classes(path):
+    global CLASSES
+    rows=json.loads(Path(path).read_text(encoding='utf-8'))
+    if [r['id'] for r in rows]!=list(range(N_CLASSES)):raise ValueError('classes must contain ordered IDs 0..21')
+    if len({r['label'] for r in rows})!=N_CLASSES:raise ValueError('duplicate canonical class name')
+    if any(not isinstance(r.get('text'),str) or not r['text'].strip() for r in rows):raise ValueError('missing English name')
+    CLASSES=rows
+    return rows
 GROUP={'C':'cfp','O':'oct','B':'combined'}
 @dataclass
 class Case:
@@ -28,7 +37,7 @@ def digest(path,algorithm='sha256'):
 
 def read_manifest(path,image_root):
     rows=[];seen=set();root=Path(image_root)
-    for line in Path(path).read_text().splitlines():
+    for line in Path(path).read_text(encoding='utf-8').splitlines():
         if not line.strip():continue
         r=json.loads(line)
         for k in ('case_id','tie_key','patient_id','center','split','images','labels'):
@@ -50,6 +59,8 @@ def read_manifest(path,image_root):
             if state=='disease' and (not ids or 21 in ids):raise ValueError('disease/normal conflict')
             if state=='empty' and ids:raise ValueError('empty state with labels')
         hashes=r.get('image_md5')
+        stamps=r.get('image_stats')
+        if stamps is not None and len(stamps)!=len(all_paths(r)):raise ValueError('image_stats length mismatch')
         if hashes is not None:
             if len(hashes)!=len(all_paths(r)) or any(not re.fullmatch('[0-9a-f]{32}',h) for h in hashes):raise ValueError('hashes must cover all available CFP/central OCT')
         rows.append(r)
@@ -72,7 +83,7 @@ def as_case(r,mod,protocol):
 def attach_md5s(cases,cfg):
     """Hash every available case image, including modalities not encoded."""
     path=Path(cfg['paths']['cache_dir'])/'image_md5.json';path.parent.mkdir(parents=True,exist_ok=True)
-    cache=json.loads(path.read_text()) if path.exists() else {}
+    cache=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
     for case in cases:
         if case.md5s is not None:continue
         values=[]
@@ -82,4 +93,4 @@ def attach_md5s(cases,cfg):
             if entry.get('stat')!=stamp:entry={'stat':stamp,'md5':digest(image,'md5')};cache[key]=entry
             values.append(entry['md5'])
         case.md5s=values
-    path.write_text(json.dumps(cache,sort_keys=True))
+    path.write_text(json.dumps(cache,sort_keys=True), encoding='utf-8')

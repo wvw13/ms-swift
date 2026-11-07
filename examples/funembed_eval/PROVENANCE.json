@@ -11,5 +11,13 @@
   "metrics": "byte-identical eval/metrics.py",
   "ranking_and_exclusion": "function bodies copied without changes from eval/evaluate.py",
   "legacy_encoders": "byte-identical eval/models.py",
-  "gpu_validation": "source implementations previously used for original and discriminative LoRA evaluations; relocated package requires GPU smoke"
+  "gpu_validation": "source implementations previously used for original and discriminative LoRA evaluations; relocated package requires GPU smoke",
+  "delivery_version": "0.2.0",
+  "private_inputs": "Fixed manifest, formal classes and texts are supplied separately in the laboratory bundle",
+  "cpu_reference_scope": {
+    "groups": 40,
+    "query_task_rows": 39436,
+    "text_full_metric_reconstruction_rows": 23762,
+    "tolerance": 1e-12
+  }
 }

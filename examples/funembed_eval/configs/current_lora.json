@@ -30,6 +30,16 @@
     "framework_path": "/path/to/ms-swift",
     "image_max_tokens": 1024,
     "max_length": 8192,
-    "batch_size": 4
-  }
+    "batch_size": 4,
+    "model_type": "qwen3_vl_emb",
+    "representation": "swift_embedding",
+    "template_type": "qwen3_vl_emb",
+    "device": "cuda:0"
+  },
+  "classes": "/path/to/private_bundle/classes.json",
+  "text_modalities": [
+    "C",
+    "O",
+    "B"
+  ]
 }

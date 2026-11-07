@@ -5,9 +5,12 @@ import numpy as np
 from .data import image_paths,digest
 from .prompts import branch,DEFAULT_INSTRUCTION
 from . import cache
+from .selection import plan,select_rows
 
 class SwiftEncoder:
     def __init__(self,c):
+        from .preflight import model_contract
+        contract=model_contract(c)
         e=c['encoder'];framework=e.get('framework_path')
         if framework:sys.path.insert(0,framework)
         os.environ.update(IMAGE_MAX_TOKEN_NUM=str(e['image_max_tokens']),HF_HUB_OFFLINE='1',MODELSCOPE_OFFLINE='1')
@@ -16,7 +19,7 @@ class SwiftEncoder:
         if framework and Path(swift.__file__).resolve()!=Path(framework,'swift/__init__.py').resolve():raise RuntimeError('unexpected imported swift source')
         if e.get('processor') and Path(e['processor'])!=Path(e['model']):raise ValueError('swift requires colocated processor; separate processor needs plugin')
         self.engine=TransformersEngine(e['model'],adapters=[e['adapter']] if e.get('adapter') else None,
-            model_type='qwen3_vl_emb',task_type='embedding',torch_dtype=torch.bfloat16,attn_impl='sdpa',device_map='cuda:0',max_batch_size=e['batch_size'])
+            model_type=e['model_type'],template_type=e.get('template_type','qwen3_vl_emb'),task_type='embedding',torch_dtype=torch.bfloat16,attn_impl='sdpa',device_map=e.get('device','cuda:0'),max_batch_size=e['batch_size'])
         self.engine.template.max_length=e['max_length'];self.engine.template.truncation_strategy='raise'
         self.engine.model.requires_grad_(False);self.engine.model.eval()
         if e.get('adapter'):
@@ -28,7 +31,7 @@ class SwiftEncoder:
         else:
             if any('lora_' in n for n,_ in self.engine.model.named_parameters()):raise RuntimeError('unexpected LoRA')
             count=0
-        self.report={'backend':'swift','adapter_tensors_checked':count,'swift_source':str(Path(swift.__file__).resolve()),'extraction':'last valid input token, final hidden state, L2; no generation'}
+        self.report={'backend':'swift','contract':contract,'adapter_tensors_checked':count,'swift_source':str(Path(swift.__file__).resolve()),'extraction':'last valid input token, final hidden state, L2; no generation'}
         self.Request=InferRequest;self.RequestConfig=RequestConfig
     def encode(self,branches):
         out=self.engine.infer([self.Request(**b) for b in branches],self.RequestConfig(),use_tqdm=False)
@@ -54,7 +57,7 @@ def backend(c):
     settings=dict(e);settings.update(path=e['model'],type=e['model_type'],device='cuda:0',dtype=e.get('dtype','bfloat16'),instruction=DEFAULT_INSTRUCTION,max_pixels=e['image_max_tokens']*32*32,min_pixels=4096,joint_batch_size=e['batch_size'],embed_dim=e.get('embed_dim',2048))
     return load_encoder(e['model_type'],{'models':{e['model_type']:settings}})
 def read_texts(c):
-    bank=json.loads(Path(c['texts']).read_text())
+    bank=json.loads(Path(c['texts']).read_text(encoding='utf-8'))
     if [r['id'] for r in bank]!=list(range(22)):raise ValueError('full ordered 22-class text bank required')
     for r in bank:
         for m in 'COB':
@@ -63,11 +66,14 @@ def read_texts(c):
     return bank
 
 def execute(c,rows):
+    rows=select_rows(c,rows);tasks=plan(c)
     directory=Path(c['cache']);fp=cache.fingerprint(c,rows)
     if (directory/'complete.json').exists():cache.validate(directory,fp);print('REUSE',directory);return
-    directory.mkdir(parents=True,exist_ok=False);(directory/'fingerprint.json').write_text(json.dumps(fp,indent=2))
+    directory.mkdir(parents=True,exist_ok=False);(directory/'fingerprint.json').write_text(json.dumps(fp,indent=2), encoding='utf-8')
     enc=backend(c);e=c['encoder'];batch=e['batch_size'];bank=read_texts(c)
+    dimension=None
     def encode_items(items,name,ids,mod,text=False):
+        nonlocal dimension
         vectors=[];tokens=[]
         for start in range(0,len(items),batch):
             part=items[start:start+batch]
@@ -87,24 +93,30 @@ def execute(c,rows):
                 t=np.asarray(ti).reshape(len(part),-1).sum(1).tolist()
             else:v,t=enc.encode([branch(c,mod,text=x) if text else branch(c,mod,images=x) for x in part])
             if c['aggregation']=='per_image' and not text and mod!='C':v=v/np.linalg.norm(v,axis=1,keepdims=True)
+            v=np.asarray(v,np.float32)
+            if v.ndim!=2 or not np.isfinite(v).all():raise ValueError('encoder returned non-finite or non-matrix embeddings')
+            if dimension is None:dimension=v.shape[1]
+            if dimension!=v.shape[1]:raise ValueError('image/text embedding dimensions differ')
             if len(v)!=len(part) or len(t)!=len(part):raise ValueError('encoder lost rows')
             if c['aggregation']=='joint' and any(n>e['max_length'] for n in t):raise ValueError('sequence exceeds max_length')
             vectors.extend(v);tokens.extend(t);print(name,min(start+batch,len(items)),len(items),flush=True)
         if not ids:raise ValueError('empty encoding set: '+name)
         cache.save(directory,name,vectors,ids,tokens)
-    for split in (c['gallery_split'],c['query_split']):
+    for split,mods in ((c['gallery_split'],tasks['gallery']),(c['query_split'],tasks['query'])):
+        if not mods:continue
         if e['backend']=='legacy' and c['aggregation']=='per_image' and c.get('cohort')=='complete_B':
             from .retrieval_core import aggregate
             rs=[r for r in rows if r['split']==split and image_paths(r,'B')]
             av=enc.encode_images([p for r in rs for p in image_paths(r,'B')]).reshape(len(rs),7,-1)
-            for mod in 'COB':cache.save(directory,f'{split}_{mod}.npz',aggregate(av,mod),[r['case_id'] for r in rs],[-1]*len(rs))
+            for mod in mods:cache.save(directory,f'{split}_{mod}.npz',aggregate(av,mod),[r['case_id'] for r in rs],[-1]*len(rs))
             continue
-        for mod in 'COB':
+        for mod in mods:
             rs=[r for r in rows if r['split']==split and image_paths(r,mod)]
             encode_items([image_paths(r,mod) for r in rs],f'{split}_{mod}.npz',[r['case_id'] for r in rs],mod)
     if c.get('evaluate_text',True):
-        for mod in 'COB':encode_items([r['name'] if c['text_kind']=='name' else r['definition'][mod] for r in bank],f'text_{mod}.npz',[str(i) for i in range(22)],mod,True)
+        for mod in tasks['text']:encode_items([r['name'] if c['text_kind']=='name' else r['definition'][mod] for r in bank],f'text_{mod}.npz',[str(i) for i in range(22)],mod,True)
     report=enc.info() if e['backend']=='legacy' else enc.report
     if report.get('truncated'):raise ValueError('legacy encoder reported truncation')
-    (directory/'encoder_report.json').write_text(json.dumps(report,indent=2))
-    (directory/'complete.json').write_text(json.dumps({'fingerprint':cache.stable(fp),'artifacts':{p.name:digest(p) for p in directory.glob('*.npz')}},indent=2))
+    (directory/'resolved_config.json').write_text(json.dumps(c,ensure_ascii=False,indent=2),encoding='utf-8')
+    (directory/'encoder_report.json').write_text(json.dumps(report,indent=2), encoding='utf-8')
+    (directory/'complete.json').write_text(json.dumps({'fingerprint':cache.stable(fp),'artifacts':{p.name:digest(p) for p in directory.glob('*.npz')}},indent=2), encoding='utf-8')

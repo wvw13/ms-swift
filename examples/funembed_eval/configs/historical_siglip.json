@@ -34,5 +34,11 @@
     "embed_dim": 1152,
     "patch_embed_fp32": true,
     "dtype": "float32"
-  }
+  },
+  "classes": "/path/to/private_bundle/classes.json",
+  "text_modalities": [
+    "C",
+    "O",
+    "B"
+  ]
 }
