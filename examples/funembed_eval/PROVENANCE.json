@@ -1,0 +1,15 @@
+{
+  "upstream_base": "21ada46205e0abfc6ab33ef8b6dd260cc4eccf8d",
+  "source_sha256": {
+    "eval/metrics.py": "452293e4448c054ca40a26f5ecd346a4c7bf0aeb68f469157323f1aa2776b567",
+    "eval/evaluate.py": "a2670d25e5faf69ac58ca17eb3b53d9594f6d5e00fe7dbac37b1f7daa2efd9f2",
+    "eval/dataset.py": "90872742b0e582a722cbc8fe826c003c5769aa31f141ef09d08d86cd0b4b58c8",
+    "eval/models.py": "3a502ac20b218538980c72918ca9687685ba38fefef7023ed8a44ef49fb49502",
+    "ms-swift-discriminative/v1/common.py": "45d8fdaeca4de85676494979f0700ddc66ffa8724aceb23aa5c82bb7c5642f2e",
+    "ms-swift-discriminative/v1/encode.py": "1c9e5ebb5ec480cbf1b7d01cee28595f7e5a4dbd6ebd73ad89f2b149d17ec68f"
+  },
+  "metrics": "byte-identical eval/metrics.py",
+  "ranking_and_exclusion": "function bodies copied without changes from eval/evaluate.py",
+  "legacy_encoders": "byte-identical eval/models.py",
+  "gpu_validation": "source implementations previously used for original and discriminative LoRA evaluations; relocated package requires GPU smoke"
+}

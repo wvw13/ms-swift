@@ -1,0 +1,134 @@
+[
+  {
+    "id": 0,
+    "label": "diabetic_retinopathy",
+    "text": "Diabetic retinopathy.",
+    "zh": "糖尿病视网膜病变"
+  },
+  {
+    "id": 1,
+    "label": "retinal_vein_occlusion",
+    "text": "Retinal vein occlusion.",
+    "zh": "视网膜静脉阻塞"
+  },
+  {
+    "id": 2,
+    "label": "retinal_detachment",
+    "text": "Retinal detachment.",
+    "zh": "视网膜脱离"
+  },
+  {
+    "id": 3,
+    "label": "macular_epiretinal_membrane",
+    "text": "Macular epiretinal membrane.",
+    "zh": "黄斑视网膜前膜"
+  },
+  {
+    "id": 4,
+    "label": "macular_retinoschisis",
+    "text": "Macular retinoschisis.",
+    "zh": "黄斑视网膜劈裂"
+  },
+  {
+    "id": 5,
+    "label": "macular_edema",
+    "text": "Macular edema.",
+    "zh": "黄斑水肿"
+  },
+  {
+    "id": 6,
+    "label": "macular_atrophy",
+    "text": "Macular atrophy.",
+    "zh": "黄斑萎缩"
+  },
+  {
+    "id": 7,
+    "label": "central_serous_chorioretinopathy",
+    "text": "Central serous chorioretinopathy.",
+    "zh": "中心性浆液性脉络膜视网膜病变"
+  },
+  {
+    "id": 8,
+    "label": "exudative_age_related_macular_degeneration",
+    "text": "Exudative age-related macular degeneration.",
+    "zh": "渗出性AMD"
+  },
+  {
+    "id": 9,
+    "label": "nonexudative_age_related_macular_degeneration",
+    "text": "Nonexudative age-related macular degeneration.",
+    "zh": "非渗出性AMD"
+  },
+  {
+    "id": 10,
+    "label": "vitreous_hemorrhage",
+    "text": "Vitreous hemorrhage.",
+    "zh": "玻璃体积血"
+  },
+  {
+    "id": 11,
+    "label": "vitreous_opacities",
+    "text": "Vitreous opacities.",
+    "zh": "玻璃体混浊"
+  },
+  {
+    "id": 12,
+    "label": "hypertensive_retinopathy",
+    "text": "Hypertensive retinopathy.",
+    "zh": "高血压视网膜病变"
+  },
+  {
+    "id": 13,
+    "label": "choroidal_neovascularization",
+    "text": "Choroidal neovascularization.",
+    "zh": "脉络膜新生血管"
+  },
+  {
+    "id": 14,
+    "label": "choroidal_atrophy",
+    "text": "Choroidal atrophy.",
+    "zh": "脉络膜萎缩"
+  },
+  {
+    "id": 15,
+    "label": "tigroid",
+    "text": "Tigroid fundus.",
+    "zh": "豹纹状眼底"
+  },
+  {
+    "id": 16,
+    "label": "laser_photocoagulation",
+    "text": "Laser photocoagulation.",
+    "zh": "激光光凝"
+  },
+  {
+    "id": 17,
+    "label": "optic_neuropathy",
+    "text": "Optic neuropathy.",
+    "zh": "视神经病变"
+  },
+  {
+    "id": 18,
+    "label": "retinal_pigment_epithelial_and_outer_retinal_atrophy",
+    "text": "Retinal pigment epithelial and outer retinal atrophy.",
+    "zh": "RPE和外界膜萎缩"
+  },
+  {
+    "id": 19,
+    "label": "retinal_atrophy",
+    "text": "Retinal atrophy.",
+    "zh": "视网膜萎缩"
+  },
+  {
+    "id": 20,
+    "label": "peripheral_retinal_degeneration",
+    "text": "Peripheral retinal degeneration.",
+    "zh": "周边视网膜变性"
+  },
+  {
+    "id": 21,
+    "label": "no_abnormality",
+    "text": "No abnormality.",
+    "zh": "无异常"
+  }
+]
