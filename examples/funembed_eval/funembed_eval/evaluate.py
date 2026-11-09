@@ -1,23 +1,24 @@
 """Selected-task orchestration around the unchanged reference ranking/metric core."""
 import csv,json
+import numpy as np
 from pathlib import Path
 from . import cache,retrieval_core as core
 from .data import image_paths,label_ids,as_case,configure_classes
-from .selection import plan,select_rows
+from .selection import plan,select_rows,role_rows
 
 def execute(c,rows):
-    configure_classes(c['classes']);rows=select_rows(c,rows);tasks=plan(c)
+    configure_classes(c['classes']);roles=role_rows(c,rows);rows=select_rows(c,rows);tasks=plan(c)
     meta=cache.validate(c['cache'],cache.fingerprint(c,rows));out=Path(c['output']);out.mkdir(parents=True,exist_ok=False)
-    result={'protocol_id':c['protocol_id'],'config':c,'cache_fingerprint':meta['fingerprint'],'protocols':{}};long=[];coverage=[]
+    result={'protocol_id':c['protocol_id'],'case_protocol':c['case_protocol'],'query_split':c['query_split'],'gallery_split':c['gallery_split'],'config':c,'cache_fingerprint':meta['fingerprint'],'protocols':{}};long=[];coverage=[]
     for protocol in c['protocols']:
         directory=out/protocol;directory.mkdir()
-        available={s:{m:[r for r in rows if r['split']==s and image_paths(r,m)] for m in mods} for s,mods in ((c['query_split'],tasks['query']),(c['gallery_split'],tasks['gallery']))}
-        q={m:[r for r in available[c['query_split']][m] if label_ids(r,m,protocol)] for m in tasks['query']}
-        g={m:[r for r in available[c['gallery_split']][m] if label_ids(r,m,protocol)] for m in tasks['gallery']}
+        available={role:{m:[r for r in roles[role] if image_paths(r,m)] for m in tasks[role]} for role in ('query','gallery')}
+        q={m:[r for r in available['query'][m] if label_ids(r,m,protocol)] for m in tasks['query']}
+        g={m:[r for r in available['gallery'][m] if label_ids(r,m,protocol)] for m in tasks['gallery']}
         qc={m:[as_case(r,m,protocol) for r in q[m]] for m in q};gc={m:[as_case(r,m,protocol) for r in g[m]] for m in g}
         qv={m:cache.load(c['cache'],f'{c["query_split"]}_{m}.npz',[r['case_id'] for r in q[m]]) for m in q}
         gv={m:cache.load(c['cache'],f'{c["gallery_split"]}_{m}.npz',[r['case_id'] for r in g[m]]) for m in g}
-        r={'query_counts':{m:{'available':len(available[c['query_split']][m]),'known':len(q[m]),'unknown_or_invalid':len(available[c['query_split']][m])-len(q[m])} for m in q},'gallery_counts':{m:len(g[m]) for m in g},'tasks':{}}
+        r={'query_counts':{m:{'available':len(available['query'][m]),'known':len(q[m]),'unknown_or_invalid':len(available['query'][m])-len(q[m])} for m in q},'gallery_counts':{m:len(g[m]) for m in g},'tasks':{}}
         for direction in c['case_directions']:
             src,dst=direction.split('-');tag=src+'_'+dst
             if qv[src].shape[1]!=gv[dst].shape[1]:raise ValueError('query/gallery dimensions differ')
@@ -27,7 +28,10 @@ def execute(c,rows):
             if qv[m].shape[1]!=tv.shape[1]:raise ValueError('image/text dimensions differ')
             r['tasks'][tag]=core.run_text_retrieval(qv[m],tv,qc[m],(1,3,5),tag,str(directory));r['tasks'][tag]['gallery']='22 disease '+c['text_kind']+' prototypes'
         for tag,summary in r['tasks'].items():
-            m=tag[0];n=len(available[c['query_split']][m]);known=len(q[m]);valid=summary['n_queries_valid']
+            records=[json.loads(line)['metrics'] for line in (directory/f'per_query__{tag}.jsonl').read_text(encoding='utf-8').splitlines() if line.strip()]
+            counts=[row['n_relevant'] for row in records]
+            summary['relevant_candidates_distribution']={'count':len(counts),'zero':sum(n==0 for n in counts),'quantiles':dict(zip(['min','p25','median','p75','max'],np.quantile(counts,[0,.25,.5,.75,1]).tolist())) if counts else {}}
+            m=tag[0];n=len(available['query'][m]);known=len(q[m]);valid=summary['n_queries_valid']
             summary.update(n_queries_available=n,n_queries_label_valid=known,n_queries_missing_or_invalid_label=n-known,
                 coverage_valid_of_label_valid=valid/known if known else None,coverage_valid_of_available=valid/n if n else None)
             coverage.append({'label_protocol':protocol,'task':tag,**{k:v for k,v in summary.items() if k.startswith(('n_queries','coverage','n_gallery'))}})

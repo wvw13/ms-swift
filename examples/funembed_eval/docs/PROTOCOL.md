@@ -89,3 +89,6 @@ summary包含生效配置、计数、排除、指标、编码指纹；每query J
 `audit-results` 对JSONL记录的query指标按原规则重新聚合，检查summary。重新核验完整排名需编码缓存和同一清单，而非仅top5。结果保存在私有位置。
 
 缓存指纹包含源代码和配置/数据版本，complete内有NPZ SHA。病例ID关联而非文件行号猜测。图像内容MD5的历史来源、数据清单SHA、正式文本SHA及配套包对应提交在私有bundle.json/audit.json登记。
+
+## 候选库与角色（新增协议）
+reference_train保持历史内部训练库；within_split明确同划分候选库，跨模态也排除同病例/患者/共享图像MD5。query_ids/gallery_ids分别控制角色，编码去重，smoke限制分别应用。schema3缓存指纹记录角色与模态集合；完整相关候选集合决定Recall分母和线性IDCG。新协议固定既有checkpoint的结果不称为新协议最优。

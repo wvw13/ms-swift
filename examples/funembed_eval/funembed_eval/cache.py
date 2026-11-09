@@ -2,7 +2,7 @@ from pathlib import Path
 import hashlib,json,importlib.metadata
 import numpy as np
 from .data import digest,all_paths
-from .selection import select_rows,plan
+from .selection import select_rows,plan,role_rows,encoding_groups
 
 def stable(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 def fingerprint(c,rows):
@@ -27,7 +27,7 @@ def fingerprint(c,rows):
     framework_sha={str(p.relative_to(framework)):digest(p) for p in framework.glob('swift/**/*.py')} if framework else {}
     plugin_hash=digest(e['plugin']) if e.get('plugin') else None
     processor=Path(e['processor']) if e.get('processor') else model
-    return {'schema':2,'bundle_sha256':digest(Path(c['bundle'])/'bundle.json') if c.get('bundle') else None,'tasks':plan(c),'case_directions':c['case_directions'],'selected_case_ids':[r['case_id'] for r in rows],'classes_sha256':digest(c['classes']),'splits':[c['gallery_split'],c['query_split']],'evaluate_text':c.get('evaluate_text',True),'encoder':e,'instruction':c['instruction'],'aggregation':c['aggregation'],'cohort':c.get('cohort','input_available'),
+    return {'schema':3,'case_protocol':c.get('case_protocol','reference_train'),'roles':{role:[r['case_id'] for r in rs] for role,rs in role_rows(c,rows).items()},'encoding_groups':{split+'_'+m:[r['case_id'] for r in rs] for split,m,rs in encoding_groups(c,rows)},'bundle_sha256':digest(Path(c['bundle'])/'bundle.json') if c.get('bundle') else None,'tasks':plan(c),'case_directions':c['case_directions'],'selected_case_ids':[r['case_id'] for r in rows],'classes_sha256':digest(c['classes']),'splits':[c['gallery_split'],c['query_split']],'evaluate_text':c.get('evaluate_text',True),'encoder':e,'instruction':c['instruction'],'aggregation':c['aggregation'],'cohort':c.get('cohort','input_available'),
         'manifest_sha256':digest(c['manifest']),'texts_sha256':digest(c['texts']),'text_kind':c['text_kind'],
         'image_stat':files,'base_weight_stat':weights,'base_config_sha256':configs,'model_scripts_sha256':{str(p.relative_to(model)):digest(p) for p in model.glob('scripts/*.py')},'chat_template_sha256':{p.name:digest(p) for p in model.glob('*.jinja')},'adapter_sha256':adapter_hash,
         'processor_sha256':{p.name:digest(p) for p in processor.glob('*.json')},'plugin_sha256':plugin_hash,

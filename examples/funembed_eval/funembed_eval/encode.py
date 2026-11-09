@@ -5,7 +5,7 @@ import numpy as np
 from .data import image_paths,digest
 from .prompts import branch,DEFAULT_INSTRUCTION
 from . import cache
-from .selection import plan,select_rows
+from .selection import plan,select_rows,encoding_groups
 
 class SwiftEncoder:
     def __init__(self,c):
@@ -102,17 +102,19 @@ def execute(c,rows):
             vectors.extend(v);tokens.extend(t);print(name,min(start+batch,len(items)),len(items),flush=True)
         if not ids:raise ValueError('empty encoding set: '+name)
         cache.save(directory,name,vectors,ids,tokens)
-    for split,mods in ((c['gallery_split'],tasks['gallery']),(c['query_split'],tasks['query'])):
-        if not mods:continue
-        if e['backend']=='legacy' and c['aggregation']=='per_image' and c.get('cohort')=='complete_B':
+    legacy_done=set()
+    for split,mod,rs in encoding_groups(c,rows):
+        mods=[m for sp,m,_ in encoding_groups(c,rows) if sp==split]
+        if split in legacy_done:continue
+        if e['backend']=='legacy' and c['aggregation']=='per_image' and c.get('cohort')=='complete_B' and c['query_split']!=c['gallery_split']:
             from .retrieval_core import aggregate
             rs=[r for r in rows if r['split']==split and image_paths(r,'B')]
             av=enc.encode_images([p for r in rs for p in image_paths(r,'B')]).reshape(len(rs),7,-1)
-            for mod in mods:cache.save(directory,f'{split}_{mod}.npz',aggregate(av,mod),[r['case_id'] for r in rs],[-1]*len(rs))
+            for m in mods:cache.save(directory,f'{split}_{m}.npz',aggregate(av,m),[r['case_id'] for r in rs],[-1]*len(rs))
+            legacy_done.add(split)
             continue
-        for mod in mods:
-            rs=[r for r in rows if r['split']==split and image_paths(r,mod)]
-            encode_items([image_paths(r,mod) for r in rs],f'{split}_{mod}.npz',[r['case_id'] for r in rs],mod)
+
+        encode_items([image_paths(r,mod) for r in rs],f'{split}_{mod}.npz',[r['case_id'] for r in rs],mod)
     if c.get('evaluate_text',True):
         for mod in tasks['text']:encode_items([r['name'] if c['text_kind']=='name' else r['definition'][mod] for r in bank],f'text_{mod}.npz',[str(i) for i in range(22)],mod,True)
     report=enc.info() if e['backend']=='legacy' else enc.report

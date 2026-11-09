@@ -25,7 +25,12 @@ def load(path,overrides=None):
     if c['instruction'] not in ('I0','I1'):raise ValueError('instruction must be I0/I1')
     if c['aggregation'] not in ('joint','per_image'):raise ValueError('unknown aggregation')
     if not c['protocols'] or set(c['protocols'])-{'modal','combined'}:raise ValueError('unknown label protocol')
-    if c['gallery_split']!='internal_train':raise ValueError('fixed gallery must be internal_train')
+    c.setdefault('case_protocol','reference_train')
+    if c['case_protocol']=='reference_train':
+        if c['gallery_split']!='internal_train':raise ValueError('reference_train requires internal_train gallery')
+    elif c['case_protocol']=='within_split':
+        if c['gallery_split']!=c['query_split'] or 'within_split' not in c['protocol_id']:raise ValueError('within_split needs matching splits and distinct protocol_id')
+    else:raise ValueError('unknown case_protocol')
     if c['query_split'] not in ('val','internal_test','external_test'):raise ValueError('invalid query split')
     if len(c['case_directions'])!=len(set(c['case_directions'])):raise ValueError('duplicate direction')
     for d in c['case_directions']:

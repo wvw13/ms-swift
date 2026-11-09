@@ -3,7 +3,7 @@ from pathlib import Path
 import importlib.metadata
 import json,os
 from .data import all_paths,configure_classes,digest,image_paths,label_ids
-from .selection import plan,select_rows
+from .selection import plan,select_rows,role_rows
 
 def model_contract(c):
     e=c['encoder'];report={'backend':e['backend'],'model_loaded':False}
@@ -58,9 +58,10 @@ def check(c,rows,files=False,environment=False):
         bm=json.loads((Path(c['bundle'])/'bundle.json').read_text(encoding='utf-8'))
         for key,filename in [('classes','classes.json'),('texts','texts.json'),('manifest','manifest.jsonl')]:
             if digest(c[key])!=bm['files_sha256'][filename]:raise ValueError(f'{key} differs from the fixed bundle')
-    for split,mods in ((c['gallery_split'],p['gallery']),(c['query_split'],p['query'])):
-        report['counts'][split]={m:{'available':sum(r['split']==split and bool(image_paths(r,m)) for r in selected),'label_valid':{v:sum(r['split']==split and bool(image_paths(r,m)) and bool(label_ids(r,m,v)) for r in selected) for v in c['protocols']}} for m in mods}
-        if any(not x['available'] for x in report['counts'][split].values()):raise ValueError(f'no available images for a requested {split} modality')
+    roles=role_rows(c,rows)
+    for role in ('query','gallery'):
+        report['counts'][role]={m:{'available':sum(bool(image_paths(r,m)) for r in roles[role]),'label_valid':{v:sum(bool(image_paths(r,m)) and bool(label_ids(r,m,v)) for r in roles[role]) for v in c['protocols']}} for m in p[role]}
+        if any(not x['available'] for x in report['counts'][role].values()):raise ValueError('no available images for '+role)
     if files:
         seen=set();stamped=0
         for r in selected:

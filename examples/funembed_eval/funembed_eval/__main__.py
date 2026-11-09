@@ -20,7 +20,7 @@ def main():
     s.add_argument('--adapter');s.add_argument('--image-root');s.add_argument('--batch-size',type=int,default=1)
     s.add_argument('--model-type',required=True);s.add_argument('--representation',required=True)
     s.add_argument('--device',default='cuda:0');s.add_argument('--query-split',choices=('val','internal_test','external_test'),default='val')
-    s.add_argument('--case-directions',nargs='*',default=[]);s.add_argument('--text-modalities',nargs='*',default=[]);s.add_argument('--smoke',action='store_true')
+    s.add_argument('--case-directions',nargs='*',default=[]);s.add_argument('--text-modalities',nargs='*',default=[]);s.add_argument('--smoke',action='store_true');s.add_argument('--case-protocol',choices=('reference_train','within_split'),default='reference_train')
     a=p.parse_args()
     try:
         if a.command=='demo':

@@ -14,6 +14,9 @@ def create(a):
                         framework_path=str(Path(a.framework_path).resolve()),batch_size=a.batch_size,
                         model_type=a.model_type,representation=a.representation,device=a.device)
     if a.image_root:c['image_root']=str(Path(a.image_root).resolve())
+    c['case_protocol']=getattr(a,'case_protocol','reference_train')
+    if c['case_protocol']=='within_split':
+        c['gallery_split']=a.query_split;c['protocol_id']+='_within_split'
     if a.smoke:
         c.update(protocol_id=c['protocol_id']+'_smoke',smoke_query_limit=2,smoke_gallery_limit=4)
     from .selection import plan
