@@ -9,7 +9,7 @@
 | 来源 | 内容 |
 |---|---|
 | 本 Git 分支 | 评测源码、CLI、协议文档、配置模板、CPU 合成示例和测试 |
-| 实验室私有配套包 `funembed_eval_linyan_20261109_v3_1.tar.gz` | 固定的 6,263 例轻量清单、22 类映射、正式名称与 C/O/B v2 定义、图像重复检测依据、实验室路径模板、计数与校验文件 |
+| 实验室私有配套包 `funembed_eval_linyan_20261109_v3_2.tar.gz` | 固定的 6,263 例轻量清单、22 类映射、正式名称与 C/O/B v2 定义、图像重复检测依据、实验室路径模板、计数与校验文件 |
 | 实验室共享路径 | 原始影像；路径已经写在私有配置模板中，可用 `--image-root` 修改 |
 | 模型所有者 | 本机模型、可选 LoRA、该模型实际的 embedding 推理方式；模型目录须带 tokenizer/processor |
 
@@ -46,29 +46,11 @@ python -m pip install -c "$FUNEMBED_REPO/examples/funembed_eval/constraints-test
 
 ## 病例候选库协议
 
-- `reference_train`（兼容旧配置默认值）：val/internal_test/external_test查询内部训练参考库，回答新病例查找已知参考病例的问题。
-- `within_split`：val→val、internal_test→internal_test或external_test→external_test，逐query排除自身、同中心患者及共享图像MD5病例。回答该划分病例之间的跨患者疾病检索问题。对训练后模型是否未见过，还须核对实际训练记录。
+主要使用流程显式选择 `within_split`：val→val、internal_test→internal_test、external_test→external_test。每例轮流作query，逐query排除同病例、同中心患者和共享图像MD5病例；用于检查该划分内的跨患者疾病检索。模型是否训练见过这些病例，需要核对实际训练记录。
 
-新协议显式设置`case_protocol: within_split`、相同query_split/gallery_split，protocol_id必须包含`within_split`。图文候选始终是22条文本。两协议不可混排绝对分数；既有checkpoint-960仍是旧验证协议选出的模型。未来新协议选模用val→val。
+`reference_train`用于复现历史“新query检索已知训练参考库”场景。CLI默认仍保留该旧语义，下面的使用命令均显式指定协议。图文gallery始终为22类文本，两种病例gallery的绝对分数不混排。现有960按旧val→train选出；未来新协议选模应使用val→val。
 
-v3私有包绑定本次源码；v2保留并配合旧4504dadc使用。解压v3后，按bundle.json中的code_commit切换本仓库版本，再安装子包。角色集合独立，支持可选query_ids/gallery_ids；smoke两端分别限2/4，编码按(split,modality,case_id)去重。缓存schema3包含角色及实际编码集合；旧缓存不直接复用，需有来源核验的受控迁移。
-
-### 新协议先做最小真实短测
-
-设置`BUNDLE`、`MODEL`、`FRAMEWORK`为自己的绝对路径，确认空闲GPU后：
-
-```bash
-funembed-eval init-lab --bundle "$BUNDLE" --model "$MODEL" --framework-path "$FRAMEWORK" \
-  --model-type qwen3_vl_emb --representation swift_embedding --case-protocol within_split \
-  --query-split val --case-directions C-C O-O B-B O-C C-O --text-modalities C O B \
-  --batch-size 1 --smoke --run-dir ./within_smoke --config ./within_smoke.json
-funembed-eval check --config ./within_smoke.json --files --environment
-CUDA_VISIBLE_DEVICES=0 funembed-eval encode --config ./within_smoke.json
-funembed-eval evaluate --config ./within_smoke.json
-funembed-eval audit-results --output ./within_smoke/results
-```
-
-LoRA额外传`--adapter "$ADAPTER"`。短测后全量需**新建配置和输出目录**，去掉`--smoke`，分别设置`--query-split internal_test`或`external_test`；若只评病例，不提供text-modalities。旧场景用`--case-protocol reference_train`。全部候选排除先于Recall分母与IDCG；输出覆盖率及相关候选数分位数，无法评价的query不计均值。
+query/gallery分别选择并独立限制smoke的2/4例，编码按split、模态、病例去重。缓存schema3记录角色和实际输入集合，不直接接收旧缓存改名。
 
 ## 3. 快速开始
 
@@ -91,8 +73,8 @@ funembed-eval audit-results --output ./synthetic_demo/results
 ```bash
 umask 077
 mkdir -p "$HOME/funembed_eval_data"
-tar -xzf funembed_eval_linyan_20261109_v3_1.tar.gz -C "$HOME/funembed_eval_data"
-FUNEMBED_BUNDLE="$HOME/funembed_eval_data/funembed_eval_linyan_20261109_v3_1"
+tar -xzf funembed_eval_linyan_20261109_v3_2.tar.gz -C "$HOME/funembed_eval_data"
+FUNEMBED_BUNDLE="$HOME/funembed_eval_data/funembed_eval_linyan_20261109_v3_2"
 FUNEMBED_COMMIT=$(python -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["code_commit"])' "$FUNEMBED_BUNDLE/bundle.json")
 git -C "$FUNEMBED_REPO" checkout "$FUNEMBED_COMMIT"
 python -m pip install "$FUNEMBED_REPO/examples/funembed_eval"
@@ -111,7 +93,8 @@ if [ -n "$FUNEMBED_ADAPTER" ]; then FUNEMBED_ARGS+=(--adapter "$FUNEMBED_ADAPTER
 
 # 首次只选 B→B 与 B→文本。改为自己的空闲物理 GPU。
 funembed-eval init-lab "${FUNEMBED_ARGS[@]}" --run-dir ./eval_val_B \
-  --config ./eval_val_B.json --case-directions B-B --text-modalities B --smoke
+  --config ./eval_val_B.json --case-directions B-B --text-modalities B \
+  --case-protocol within_split --query-split val --smoke
 funembed-eval check --config ./eval_val_B.json --files --environment
 set -o pipefail
 CUDA_VISIBLE_DEVICES=0 funembed-eval encode --config ./eval_val_B.json 2>&1 | tee ./eval_val_B.encoding.log
@@ -123,12 +106,34 @@ funembed-eval audit-results --output ./eval_val_B/results
 
 **上面的首次模型短测已启用 `--smoke`**。它固定最多 2 个 query、4 个 gallery，仍保留完整 22 类文本，协议名带 `_smoke`。再运行相同的 check→encode→evaluate→audit 命令。短测输出与正式输出分开。
 
-完整任务在初始化时使用：
+上面的运行只检查验证集小样本接口。短测成功后，以下命令分别运行完整验证集、内部测试、外部测试，配置、缓存和输出各自独立。模型选择只使用验证集；两个测试集用于固定模型的最终报告。
 
 ```bash
-funembed-eval init-lab "${FUNEMBED_ARGS[@]}" --run-dir ./eval_val_all \
-  --config ./eval_val_all.json --case-directions C-C O-O B-B O-C C-O \
-  --text-modalities C O B --query-split val
+for FUNEMBED_SPLIT in val internal_test external_test; do
+  FUNEMBED_RUN="./within_${FUNEMBED_SPLIT}_all"
+  funembed-eval init-lab "${FUNEMBED_ARGS[@]}" \
+    --run-dir "$FUNEMBED_RUN" --config "${FUNEMBED_RUN}.json" \
+    --case-protocol within_split --query-split "$FUNEMBED_SPLIT" \
+    --case-directions C-C O-O B-B O-C C-O --text-modalities C O B
+  funembed-eval check --config "${FUNEMBED_RUN}.json" --files --environment || break
+  CUDA_VISIBLE_DEVICES=0 funembed-eval encode --config "${FUNEMBED_RUN}.json" || break
+  funembed-eval evaluate --config "${FUNEMBED_RUN}.json" || break
+  funembed-eval audit-results --output "$FUNEMBED_RUN/results" || break
+done
+```
+
+只需要一个划分时，把循环列表改为该划分；只需病例检索时不传`--text-modalities`，可减少文本编码。
+
+历史参考库复现用单独目录，显式选择`reference_train`：
+
+```bash
+funembed-eval init-lab "${FUNEMBED_ARGS[@]}" --run-dir ./reference_internal_test \
+  --config ./reference_internal_test.json --case-protocol reference_train \
+  --query-split internal_test --case-directions C-C O-O B-B O-C C-O
+funembed-eval check --config ./reference_internal_test.json --files --environment
+CUDA_VISIBLE_DEVICES=0 funembed-eval encode --config ./reference_internal_test.json
+funembed-eval evaluate --config ./reference_internal_test.json
+funembed-eval audit-results --output ./reference_internal_test/results
 ```
 
 只做图文：省略 `--case-directions`；只做病例：省略 `--text-modalities`。必须至少选一项。选择图文时不会编码病例 gallery；选择 O→C 时只编码 O query 与 C gallery。历史 `complete_B + legacy + per_image` 保留七图连续展平的原批处理顺序。
@@ -197,8 +202,12 @@ Hit/Recall/NDCG@1/3/5 是有效 query 的等权均值。`coverage.csv` 同时给
 
 CPU 流程包括独立目录安装/CLI、合成闭环、手算多标签指标、同病例/患者/重复图像排除、并列排序、无相关候选、双标签协议、任务选择、缓存失效、正式输入一致性及已有结果复算。
 
-原模型和判别式 LoRA 的源编码实现已有历史 GPU 评测记录。交付版本新增配置/检查/任务选择逻辑仍需要上述最小真实编码短测；师兄 checkpoint 尚未提供。其架构、processor 或表征方式不同，按模型接入文档补足信息后测试。
+我们自己的原始Qwen3-VL-Embedding-2B与E2 checkpoint-960已完成C/O/B、跨模态和22类文本的发布入口真实GPU短测，包括同split角色去重、缓存、排除和指标复核。完整新协议结果使用核验后的历史向量CPU重检索；发布入口重新编码全量的逐值/指标复现尚未确认。师兄自身checkpoint需按上述smoke流程接入验证。
+
+编码比较请固定batch size、样本顺序和批次组成，query/gallery采用同一配置。已验证小样本在同batch重复运行和两个入口之间逐值一致，但batch 1与4会改变部分向量、排序及指标。新实验先固定batch 1；历史batch 4缓存的精确复现应保留历史配置，不能用batch 1查询混入batch 4 gallery冒充全流程复现。
 
 源实验使用 RTX 5880 48GB；2B 联合编码曾按 batch 1–4 运行。新机器和未知模型以 batch 1 短测确定显存与耗时；CPU 合成结果不能估算真实 GPU 成本。
+
+测试代码有23个test_函数定义；由于继承与导入，unittest执行41项，不将重复执行计为新增覆盖。
 
 开发检查：`python -m unittest discover -s "$FUNEMBED_REPO/examples/funembed_eval/tests" -v`。安装检查无需作者 cwd 或额外 PYTHONPATH。
