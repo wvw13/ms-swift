@@ -25,3 +25,19 @@ class RoleTests(DeliveryTests):
  def test_role_ids_preserve_independent_order(self):
   _,c,r=self.fixture();rs=[x for x in r if x['split']=='val'];c.update(gallery_split='val',case_protocol='within_split',query_ids=[rs[3]['case_id'],rs[0]['case_id']],gallery_ids=[rs[1]['case_id'],rs[0]['case_id']])
   roles=role_rows(c,select_rows(c,r));self.assertEqual([x['case_id'] for x in roles['query']],c['query_ids']);self.assertEqual([x['case_id'] for x in roles['gallery']],c['gallery_ids'])
+ def test_same_split_exclusions_before_full_relevance_and_idcg(self):
+  import math
+  from funembed_eval.data import Case
+  from funembed_eval.retrieval_core import run_case_retrieval
+  q=[Case('q','center','val','val','patient-q',[0,1],'',[],['hash-q'])]
+  # Same case, same patient, and shared content must all disappear before ranking.
+  g=[Case('q','center','val','val','patient-q',[0,1],'',[],['hash-q']),
+     Case('patient-copy','center','val','val','patient-q',[0,1],'',[],['hash-other']),
+     Case('image-copy','center','val','val','patient-other',[0,1],'',[],['hash-q']),
+     Case('a','center','val','val','patient-a',[0],'',[],['hash-a']),
+     Case('b','center','val','val','patient-b',[0,1],'',[],['hash-b'])]
+  s=run_case_retrieval(np.array([[1.,0.]]),np.tile([1.,0.],(5,1)),q,g,(1,3,5),'same',str(self.root),{'paths':{'cache_dir':str(self.root)}})
+  self.assertEqual(s['exclusions_total'],{'self':1,'same_patient':1,'duplicate_image':1})
+  self.assertEqual(s['recall@1'],.5);self.assertEqual(s['recall@5'],1)
+  self.assertAlmostEqual(s['ndcg@1'],.5)
+  self.assertAlmostEqual(s['ndcg@5'],(.5+1/math.log2(3))/(1+.5/math.log2(3)))

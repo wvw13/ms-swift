@@ -9,7 +9,7 @@
 | 来源 | 内容 |
 |---|---|
 | 本 Git 分支 | 评测源码、CLI、协议文档、配置模板、CPU 合成示例和测试 |
-| 实验室私有配套包 `funembed_eval_linyan_20261109_v3.tar.gz` | 固定的 6,263 例轻量清单、22 类映射、正式名称与 C/O/B v2 定义、图像重复检测依据、实验室路径模板、计数与校验文件 |
+| 实验室私有配套包 `funembed_eval_linyan_20261109_v3_1.tar.gz` | 固定的 6,263 例轻量清单、22 类映射、正式名称与 C/O/B v2 定义、图像重复检测依据、实验室路径模板、计数与校验文件 |
 | 实验室共享路径 | 原始影像；路径已经写在私有配置模板中，可用 `--image-root` 修改 |
 | 模型所有者 | 本机模型、可选 LoRA、该模型实际的 embedding 推理方式；模型目录须带 tokenizer/processor |
 
@@ -91,8 +91,11 @@ funembed-eval audit-results --output ./synthetic_demo/results
 ```bash
 umask 077
 mkdir -p "$HOME/funembed_eval_data"
-tar -xzf funembed_eval_linyan_20261109_v3.tar.gz -C "$HOME/funembed_eval_data"
-FUNEMBED_BUNDLE="$HOME/funembed_eval_data/funembed_eval_linyan_20261108_v2"
+tar -xzf funembed_eval_linyan_20261109_v3_1.tar.gz -C "$HOME/funembed_eval_data"
+FUNEMBED_BUNDLE="$HOME/funembed_eval_data/funembed_eval_linyan_20261109_v3_1"
+FUNEMBED_COMMIT=$(python -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["code_commit"])' "$FUNEMBED_BUNDLE/bundle.json")
+git -C "$FUNEMBED_REPO" checkout "$FUNEMBED_COMMIT"
+python -m pip install "$FUNEMBED_REPO/examples/funembed_eval"
 funembed-eval verify-bundle --bundle "$FUNEMBED_BUNDLE"
 ```
 
@@ -108,7 +111,7 @@ if [ -n "$FUNEMBED_ADAPTER" ]; then FUNEMBED_ARGS+=(--adapter "$FUNEMBED_ADAPTER
 
 # 首次只选 B→B 与 B→文本。改为自己的空闲物理 GPU。
 funembed-eval init-lab "${FUNEMBED_ARGS[@]}" --run-dir ./eval_val_B \
-  --config ./eval_val_B.json --case-directions B-B --text-modalities B
+  --config ./eval_val_B.json --case-directions B-B --text-modalities B --smoke
 funembed-eval check --config ./eval_val_B.json --files --environment
 set -o pipefail
 CUDA_VISIBLE_DEVICES=0 funembed-eval encode --config ./eval_val_B.json 2>&1 | tee ./eval_val_B.encoding.log
@@ -118,7 +121,7 @@ funembed-eval audit-results --output ./eval_val_B/results
 
 `init-lab` 只写配置；`check` 只做 CPU 检查。`encode` 才会加载模型。默认 batch size 1；每图 1024 image-token 预算，序列上限 8192，超长报错而不截断。物理卡由 `CUDA_VISIBLE_DEVICES` 控制，进程内使用 `cuda:0`。
 
-**首次模型短测**：在 `init-lab` 命令中加 `--smoke`，并换新的 config/run-dir。它固定最多 2 个 query、4 个 gallery，仍保留完整 22 类文本，协议名带 `_smoke`。再运行相同的 check→encode→evaluate→audit 命令。短测输出与正式输出分开。
+**上面的首次模型短测已启用 `--smoke`**。它固定最多 2 个 query、4 个 gallery，仍保留完整 22 类文本，协议名带 `_smoke`。再运行相同的 check→encode→evaluate→audit 命令。短测输出与正式输出分开。
 
 完整任务在初始化时使用：
 
@@ -137,7 +140,8 @@ funembed-eval init-lab "${FUNEMBED_ARGS[@]}" --run-dir ./eval_val_all \
 | `model / adapter` | 完整基座与可选 LoRA；不能把仅 adapter 的目录当成完整模型 |
 | `framework_path` | 兼容 ms-swift 源码根目录 |
 | `image_root` | 所有清单相对影像路径的根目录 |
-| `query_split` | val / internal_test / external_test；病例 gallery 固定 internal_train |
+| `query_split` | val / internal_test / external_test；由 case_protocol 决定病例 gallery |
+| `case_protocol / gallery_split` | reference_train 使用 internal_train；within_split 使用 query 的同划分 |
 | `case_directions / text_modalities` | 本次实际运行的方向与文本模态 |
 | `protocols` | modal 与 combined 分开计算 |
 | `instruction / text_kind` | I0/I1、name/definition；改变后新建缓存 |

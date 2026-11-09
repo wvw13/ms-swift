@@ -35,7 +35,7 @@ C 使用 CFP；O 使用中心六张 007–012；B 使用 CFP、007、008、009�
 
 ## Query、Gallery 与标签
 
-Query 来自所选 val/internal_test/external_test。病例 Gallery 始终为内部训练集，外部测试也用同一内部病例库；各模态按图像可用性及该标签协议是否有效筛选。固定同一清单比较模型。文本 Gallery 始终22类，无论某类在某个模态训练标签中出现与否；13类 OCT 仅为另行定义的诊断。
+Query 来自所选 val/internal_test/external_test。reference_train 的病例 Gallery 为内部训练集；within_split 的病例 Gallery 为与 Query 相同的划分，逐查询排除同病例、同中心患者及共享图像内容MD5病例；各模态按图像可用性及该标签协议是否有效筛选。固定同一清单比较模型。文本 Gallery 始终22类，无论某类在某个模态训练标签中出现与否；13类 OCT 仅为另行定义的诊断。
 
 当前病例方向：C→C、O→O、B→B、O→C、C→O。历史额外 B→C、B→O 可显式选择。每个 Gallery 项是一例，不是单张切片。
 
