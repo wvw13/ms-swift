@@ -82,11 +82,29 @@ def select(c,steps,summaries):
  else:raise ValueError(mode)
  if [x['step'] for x in result['candidates']]!=steps:raise ValueError('incomplete candidate list')
  write(w/'selected.json',result);return result['selected']['step']
+def finish_export(c):
+ """Retry only export after computation is complete; retain all successful stages."""
+ from .export import export_results
+ w=work(c)
+ write(w/'status.json',{'status':'running','stage':'export','smoke':bool(c.get('smoke'))})
+ try:
+  result=export_results(w,w/'result_export.tar.gz',recover_invalid=True)
+ except BaseException as error:
+  write(w/'status.json',{'status':'failed','stage':'export','error_type':type(error).__name__,'error':str(error),'resume':'run the same configuration to retry export only'})
+  raise
+ write(w/'export_complete.json',result)
+ write(w/'status.json',{'status':'completed','stage':'export','smoke':bool(c.get('smoke')),'export':result})
+ return result
+
 def full(c,gpus):
  import fcntl
  w=work(c);w.mkdir(parents=True,exist_ok=True);lock=(w/'.workflow.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 
- if (w/'result_export.tar.gz').exists() and (w/'status.json').exists() and read(w/'status.json').get('status')=='completed':return
+ previous=read(w/'status.json') if (w/'status.json').exists() else {}
+ if (w/'export_ready.json').exists() or previous.get('status')=='completed':
+  if read(w/'resolved.json')!=c:raise ValueError('resolved config changed; export recovery requires original configuration')
+  if not (w/'export_ready.json').exists():write(w/'export_ready.json',{'compute_stages_complete':True,'source':'legacy completed status'})
+  return finish_export(c)
  if c.get('baseline'):inputs(c);write(w/'resolved.json',c)
  else:prepare(c)
  gpu=gpus.split(',')[0];t=c['training']
@@ -105,10 +123,11 @@ def full(c,gpus):
    summaries.append(evaluation(c,step,'val',gpu))
    if c['selection']['mode']=='historical_B_LP':lp(c,step,'B',gpu,'val')
   step=select(c,steps,summaries)
-  if c.get('smoke'):lp(c,step,'C',gpu,'val',tiny=True)
+  if c.get('smoke'):
+   for split in ['internal_test','external_test']:evaluation(c,step,split,gpu)
+   lp(c,step,'C',gpu,'all',tiny=True)
   else:
    for split in ['internal_test','external_test']:evaluation(c,step,split,gpu)
    for m in c.get('lp_modalities',list('COB')):lp(c,step,m,gpu)
- write(w/'status.json',{'status':'completed','smoke':bool(c.get('smoke'))})
- from .export import export_results
- export_results(w,w/'result_export.tar.gz')
+ write(w/'export_ready.json',{'compute_stages_complete':True,'smoke':bool(c.get('smoke'))})
+ return finish_export(c)

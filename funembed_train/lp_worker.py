@@ -32,9 +32,8 @@ def main():
   for seed in ([0] if a.tiny else [0,1,2]):
    args.seed=seed;args.run=str(out/f'seed{seed}');engine.train(args,cfg,device,rank,world,prot)
  if a.stage in ['test','all']:
-  if a.tiny:raise ValueError('tiny LP is train/val only')
   engine.SPLITS=('internal_test','external_test');engine.extract(args,cfg,device,rank,world,prot)
-  for seed in [0,1,2]:
+  for seed in ([0] if a.tiny else [0,1,2]):
    args.seed=seed;args.run=str(out/f'seed{seed}');engine.evaluate(args,cfg,device,rank,world,prot)
  write(out/f'{a.stage}_complete.json',{'status':'completed','modality':a.modality,'seeds':[0] if a.tiny else [0,1,2],'tiny':a.tiny,'stage':a.stage})
 if __name__=='__main__':main()

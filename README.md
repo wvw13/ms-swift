@@ -27,7 +27,7 @@ C为一张CFP；O为007–012六张OCT联合输入；B为CFP在前、六张OCT�
 
 ## 2. 环境安装
 
-使用独立环境，不改已有训练环境。实验室验证环境为Linux、Python3.13、PyTorch2.9.1 CUDA12.8、Transformers4.57.3；关键版本在`constraints-tested.txt`。外部驱动与CUDA适配先由运行者确认。
+最低 Python 版本为3.13，安装元数据与CLI入口均检查；不支持Python3.11/3.12。实际验收使用Python3.13，安全解压保留data过滤器、路径/链接检查和逐文件SHA核验。使用独立环境，不改已有训练环境。实验室验证环境为Linux、Python3.13、PyTorch2.9.1 CUDA12.8、Transformers4.57.3；关键版本在`constraints-tested.txt`。外部驱动与CUDA适配先由运行者确认。
 
 ```bash
 python3.13 -m venv .venv
@@ -70,7 +70,7 @@ python -m funembed_train check --config configs/E4.json --environment
 python -m funembed_train prepare --config configs/E4.json --smoke
 ```
 
-确认两张卡空闲，再执行短测。`--gpus`填物理卡号，torchrun内部编号为0、1。
+每次迁移验收使用新的OUTPUT_ROOT（或新的experiment_id），不要复用旧版已完成smoke目录。确认两张卡空闲，再执行短测。`--gpus`填物理卡号，torchrun内部编号为0、1。
 ```bash
 nvidia-smi
 python -m funembed_train run --config configs/T3.json --smoke --gpus 0,1
@@ -78,7 +78,7 @@ python -m funembed_train run --config configs/E3.json --smoke --gpus 0,1
 python -m funembed_train run --config configs/E4.json --smoke --gpus 0,1
 ```
 
-每次串行，不同时执行上面三条。短测为独立`*_smoke`目录、两个完整调度周期：T3第2步保存退出再恢复到4；E3为5→10；E4为8→16；T1-C/O/B为3→6。保留正式K4、双卡micro1×GA16。随后对两个checkpoint在固定前16例val上联合编码、检索、audit、选模，再做32train/16val、seed0、2轮的小型分类LP接口检查，最后导出。小样本使用`short_fixed_subset`协议，不产生正式成绩。
+每次串行，不同时执行上面三条。短测为独立`*_smoke`目录、两个完整调度周期：T3第2步保存退出再恢复到4；E3为5→10；E4为8→16；T1-C/O/B为3→6。保留正式K4、双卡micro1×GA16。随后对两个checkpoint在固定前16例val上联合编码、检索、audit、选模，固定选中的checkpoint后，对内外测试各前16例运行检索；再做32train/16val、内外各16例、seed0、2轮的小型分类LP训练与测试，最后导出。测试子集不参与选模。小样本使用`short_fixed_subset`协议，不产生正式成绩。
 
 外部首次验收要完成上述训练→保存→恢复→加载→验证选模→检索→小LP→导出。详细状态写在`stages/`、`resume_acceptance.json`和日志中；若某方向无相关候选，覆盖率会显示出来。
 
@@ -155,6 +155,17 @@ OUTPUT_ROOT/experiment_id/
 ```bash
 python -m funembed_train export --config configs/E3.json --output /your/export/E3_summary_v1.tar.gz
 ```
+
+导出写入目标目录的唯一`.partial`文件，完成gzip读至EOF、安全解压、完整文件清单和SHA检查后原子替换最终包；这之后工作流才写completed。失败原因记录在status.json的export阶段，保留临时文件。
+
+```bash
+# 检查已生成包，不加载模型或GPU
+python -m funembed_train verify-export --output /your/export/E3_summary_v1.tar.gz
+# 自动流程的export失败后，用原配置再次run，只恢复导出
+python -m funembed_train run --config configs/E3.json --gpus 0,1
+```
+
+导出前已完成的计算由export_ready.json记录。旧版本completed但残缺的最终包会保留为`.invalid.<时间戳>`，再从原产物重建；不重跑训练、编码或LP。`.partial`残留留作排查，不会被当成结果。已有有效包内容相同则验证后复用，内容不同则保留并报错，请用export命令指定新文件名；不覆盖有效历史结果。export_complete.json保存最终包SHA与复用/损坏包保留信息。
 
 默认包括脱敏配置、源代码/数据指纹、环境、loss/LR、验证轨迹、选模、汇总检索和LP指标/阈值、阶段耗时。每个包带文件SHA清单并解压核验。不会自动包含影像、病例ID、权重、向量或完整stdout。
 

@@ -16,7 +16,7 @@ def doctor(c):
   for shard in set(read(index)['weight_map'].values()):
    if not (model/shard).is_file():raise FileNotFoundError(model/shard)
  elif not (model/'model.safetensors').is_file():raise FileNotFoundError('model safetensors/index missing')
- report={'packages':{k:importlib.metadata.version(k) for k in ['torch','transformers','peft','numpy','qwen-vl-utils','scikit-learn']},'framework_commit':lock['base_commit'],'framework_files_checked':len(lock['source_sha256']),'CUDA_loaded':False}
+ report={'python':sys.version,'minimum_python':'3.13','packages':{k:importlib.metadata.version(k) for k in ['torch','transformers','peft','numpy','qwen-vl-utils','scikit-learn']},'framework_commit':lock['base_commit'],'framework_files_checked':len(lock['source_sha256']),'CUDA_loaded':False}
  report['model_metadata_sha256']={n:sha(model/n) for n in ['config.json','tokenizer_config.json','preprocessor_config.json','model.safetensors.index.json'] if (model/n).exists()}
  report['code_commit']=Path(__file__).with_name('revision.txt').read_text().strip()
  if report['code_commit'].startswith('$'):
@@ -29,7 +29,11 @@ def doctor(c):
 
 def main():
  p=argparse.ArgumentParser(description='FunEmbed configurable training and evaluation; no implicit GPU actions')
- p.add_argument('action',choices=['check','prepare','train','resume','evaluate','select','lp','run','export','synthetic-demo','retry-stage']);p.add_argument('--stage');p.add_argument('--config');p.add_argument('--paths');p.add_argument('--gpus',default='0,1');p.add_argument('--smoke',action='store_true');p.add_argument('--checkpoint',type=int);p.add_argument('--split',choices=['val','internal_test','external_test'],default='val');p.add_argument('--modality',choices=list('COB'),default='B');p.add_argument('--environment',action='store_true');p.add_argument('--output');p.add_argument('--include-queries',action='store_true');p.add_argument('--include-predictions',action='store_true');p.add_argument('--include-embeddings',action='store_true');p.add_argument('--include-weights',action='store_true');a=p.parse_args()
+ p.add_argument('action',choices=['check','prepare','train','resume','evaluate','select','lp','run','export','synthetic-demo','retry-stage','verify-export']);p.add_argument('--stage');p.add_argument('--config');p.add_argument('--paths');p.add_argument('--gpus',default='0,1');p.add_argument('--smoke',action='store_true');p.add_argument('--checkpoint',type=int);p.add_argument('--split',choices=['val','internal_test','external_test'],default='val');p.add_argument('--modality',choices=list('COB'),default='B');p.add_argument('--environment',action='store_true');p.add_argument('--output');p.add_argument('--include-queries',action='store_true');p.add_argument('--include-predictions',action='store_true');p.add_argument('--include-embeddings',action='store_true');p.add_argument('--include-weights',action='store_true');a=p.parse_args()
+ if a.action=='verify-export':
+  if not a.output:p.error('--output is required')
+  from .export import validate_archive
+  print(json.dumps({k:v for k,v in validate_archive(a.output).items() if k!='files'},indent=2));return
  if a.action=='synthetic-demo':
   from .synthetic import demo
   print(json.dumps(demo(Path(a.output or 'synthetic_output')),indent=2));return

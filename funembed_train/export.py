@@ -1,9 +1,48 @@
 """Allowlisted aggregate export; detailed artifacts need separate explicit options."""
 from pathlib import Path
-import json,csv,tarfile,tempfile,shutil,hashlib
+import json,csv,tarfile,tempfile,shutil,hashlib,os,gzip,time,fcntl
+from contextlib import contextmanager
 from .config import read,write,sha
 
-def export_results(root,output,queries=False,predictions=False,embeddings=False,weights=False):
+class InvalidArchive(ValueError):
+ pass
+
+def validate_archive(output):
+ """Read gzip through EOF, reject links/traversal, extract safely and verify every file."""
+ output=Path(output)
+ try:
+  with gzip.open(output,'rb') as stream:
+   while stream.read(2**20):pass
+  with tempfile.TemporaryDirectory() as temp:
+   dest=Path(temp)
+   with tarfile.open(output,'r:gz') as tar:
+    members=tar.getmembers();names=[m.name for m in members]
+    if len(names)!=len(set(names)):raise ValueError('duplicate archive members')
+    for m in members:
+     path=Path(m.name)
+     if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0]!='funembed_results':raise ValueError('unsafe archive path')
+     if not (m.isfile() or m.isdir()):raise ValueError('links/special members prohibited')
+    tar.extractall(dest,filter='data')
+   base=dest/'funembed_results';manifest=read(base/'FILES.sha256.json')
+   actual={str(p.relative_to(base)):sha(p) for p in base.rglob('*') if p.is_file() and p.name!='FILES.sha256.json'}
+   if not manifest or manifest!=actual:raise ValueError('file inventory/hash mismatch')
+   if not {'resolved_config.json','export_policy.json'}<=actual.keys():raise ValueError('required export files missing')
+   return {'file_count':len(actual)+1,'bytes':output.stat().st_size,'sha256':sha(output),'archive':str(output),'files':actual}
+ except (OSError,EOFError,tarfile.TarError,ValueError,KeyError) as error:
+  raise InvalidArchive(f'Invalid result archive {output}: {error}') from error
+
+@contextmanager
+def output_lock(output):
+ output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
+ with output.with_name(output.name+'.lock').open('a') as lock:
+  fcntl.flock(lock,fcntl.LOCK_EX)
+  yield
+
+def export_results(root,output,queries=False,predictions=False,embeddings=False,weights=False,*,recover_invalid=False):
+ with output_lock(output):
+  return _export_results(root,output,queries,predictions,embeddings,weights,recover_invalid=recover_invalid)
+
+def _export_results(root,output,queries=False,predictions=False,embeddings=False,weights=False,*,recover_invalid=False):
  root=Path(root).resolve();output=Path(output).resolve()
  with tempfile.TemporaryDirectory() as temp:
   dest=Path(temp)/'funembed_results';dest.mkdir()
@@ -41,6 +80,8 @@ def export_results(root,output,queries=False,predictions=False,embeddings=False,
     for x in history:
      if 'loss' not in x:continue
      s=schedule.get(x.get('step'),{});w.writerow({k:x.get(k,'') for k in ['step','loss','learning_rate','grad_norm']}|{k:s.get(k,'') for k in ['task','direction']}|{'query_exposures':s.get('row_count','')})
+  ready=read(root/'export_ready.json') if (root/'export_ready.json').exists() else {}
+  write(dest/'workflow_state.json',{'compute_stages_complete':ready.get('compute_stages_complete',False),'smoke':bool(cfg.get('smoke')),'archive_integrity':'verify with FILES.sha256.json and verify-export'})
   options={'queries':queries,'predictions':predictions,'embeddings':embeddings,'weights':weights};write(dest/'export_policy.json',{'options':options,'default':'aggregate only; no weights, images, patient IDs, vectors or complete stdout'})
   patterns=[]
   if queries:patterns+=['evaluation/**/per_query*.jsonl']
@@ -52,9 +93,23 @@ def export_results(root,output,queries=False,predictions=False,embeddings=False,
     if p.is_file():target=dest/p.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,target)
   files={str(p.relative_to(dest)):sha(p) for p in sorted(dest.rglob('*')) if p.is_file()};write(dest/'FILES.sha256.json',files)
   output.parent.mkdir(parents=True,exist_ok=True)
-  if output.exists():raise FileExistsError('use a new export filename')
-  with tarfile.open(output,'w:gz') as tar:tar.add(dest,arcname='funembed_results')
-  check=Path(temp)/'extract'
-  with tarfile.open(output) as tar:tar.extractall(check,filter='data')
-  for rel,h in files.items():assert sha(check/'funembed_results'/rel)==h
-  return {'file_count':len(files)+1,'bytes':output.stat().st_size,'sha256':sha(output),'archive':str(output)}
+  preserved=None
+  if output.exists():
+   try:existing=validate_archive(output)
+   except InvalidArchive:
+    if not recover_invalid:raise
+    preserved=output.with_name(output.name+f'.invalid.{time.time_ns()}');os.replace(output,preserved)
+   else:
+    if existing['files']!=files:raise FileExistsError('Existing valid result differs: keep it and choose a new output filename')
+    return {k:v for k,v in existing.items() if k!='files'}|{'reused':True}
+  fd,name=tempfile.mkstemp(prefix=output.name+'.',suffix='.partial',dir=output.parent);os.close(fd);partial=Path(name)
+  # Retain failed partial files for diagnosis. Only a fully verified archive becomes final.
+  with tarfile.open(partial,'w:gz') as tar:tar.add(dest,arcname='funembed_results')
+  with partial.open('rb') as f:os.fsync(f.fileno())
+  checked=validate_archive(partial)
+  if checked['files']!=files:raise InvalidArchive('validated inventory differs from intended export')
+  os.replace(partial,output)
+  directory=os.open(output.parent,os.O_RDONLY)
+  try:os.fsync(directory)
+  finally:os.close(directory)
+  return {k:v for k,v in checked.items() if k!='files'}|{'archive':str(output),'reused':False,'preserved_invalid':str(preserved) if preserved else None}

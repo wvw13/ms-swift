@@ -1,16 +1,19 @@
 {
-  "executions": 57,
+  "executions": 68,
   "test_definitions": {
+    "test_export_recovery.py": 11,
     "test_portable.py": 10,
     "test_select_within.py": 10,
     "test_training.py": 6,
     "test_roles.py": 4,
     "test_delivery.py": 9
   },
-  "unique_definitions": 39,
+  "unique_definitions": 50,
   "isolated_install": "pip --no-deps --no-build-isolation --target; cwd=/tmp",
   "synthetic_example": "completed: eight directions, metrics/audit/export",
   "real_inputs": "counts C3785 O3784 B3784 train; LP3784/457/1038/984; files and hashes checked",
   "real_schedule": "K4 world2 micro1 GA16; 16 updates,512 queries,all8 directions twice",
-  "GPU_started_by_delivery": false
+  "GPU_started_by_delivery": false,
+  "python_minimum": "3.13",
+  "export_recovery": "atomic publish, verify/reuse, export-only retry tested"
 }
