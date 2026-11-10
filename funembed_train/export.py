@@ -20,6 +20,10 @@ def export_results(root,output,queries=False,predictions=False,embeddings=False,
   for p in root.glob('lp/**/train_complete.json'):write(dest/p.relative_to(root),{k:v for k,v in read(p).items() if k!='signature'})
   for p in root.glob('lp/**/complete.json'):write(dest/p.relative_to(root),{k:v for k,v in read(p).items() if k!='signature'})
   for p in root.glob('lp/**/summary.json'):write(dest/p.relative_to(root),read(p))
+  adapters={}
+  for cp in sorted((root/'train').glob('checkpoint-*')):
+   adapters[cp.name]={p.name:sha(p) for p in cp.glob('adapter*') if p.is_file() and p.suffix in ('.json','.safetensors')}
+  write(dest/'model_fingerprints.json',{'base_metadata':read(root/'environment.json').get('model_metadata_sha256',{}) if (root/'environment.json').exists() else {},'checkpoint_adapter_sha256':adapters,'base_weight_content_hash':'not computed; retain model provider/version separately'})
   resources=[]
   for p in root.glob('stages/*.json'):
    d=read(p);resources.append({k:d.get(k) for k in ['status','seconds','gpus','exit_code','hardware'] }|{'stage':p.stem})
