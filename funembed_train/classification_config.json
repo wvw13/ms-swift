@@ -1,0 +1,40 @@
+{
+  "protocol": "combined22_joint_classification_v1",
+  "models": {
+    "2b": "${MODEL_ROOT}"
+  },
+  "instructions": {
+    "C": "Encode this color fundus photograph into a representation for multi-label ophthalmic disease recognition.",
+    "O": "Encode these six ordered OCT slices jointly into one representation for multi-label ophthalmic disease recognition.",
+    "B": "Encode these images jointly into one representation for multi-label ophthalmic disease recognition. The first image is a color fundus photograph, followed by six ordered OCT slices."
+  },
+  "min_pixels": 4096,
+  "max_pixels": 1048576,
+  "max_length": 8192,
+  "attention": "sdpa",
+  "patch_embed_fp32": true,
+  "workers": 2,
+  "extract_batch": 1,
+  "lp": {
+    "epochs": 1500,
+    "batch_size": 256,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "patience": 60,
+    "lr_patience": 15
+  },
+  "ft": {
+    "epochs": 10,
+    "micro_batch": 1,
+    "effective_batch": 32,
+    "lr": 0.0001,
+    "head_lr": 0.001,
+    "weight_decay": 0.01,
+    "rank": 16,
+    "alpha": 32,
+    "dropout": 0.05,
+    "patience": 3,
+    "gradient_checkpointing": true,
+    "grad_clip": 1.0
+  }
+}

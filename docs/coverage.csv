@@ -1,0 +1,9 @@
+task,direction,portable_CPU,lab_GPU,portable_GPU,external_GPU
+T1,C,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T1,O,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T1,B,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T2,C-C,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T2,O-O,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T2,B-B,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T3,C-O,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run
+T3,O-C,passed,E4 K4 2GPU GA16 source implementation passed,not run; GPUs occupied,not run

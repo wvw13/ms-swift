@@ -1,0 +1,7 @@
+{
+  "model_root": "${MODEL_ROOT}",
+  "data_root": "${DATA_ROOT}",
+  "private_input_root": "${PRIVATE_INPUT_ROOT}",
+  "swift_root": "${SWIFT_ROOT}",
+  "output_root": "${OUTPUT_ROOT}"
+}

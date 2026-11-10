@@ -1,0 +1,30 @@
+{
+  "evaluation_commit": "a94c97cd368ac4f264e1413f5d495b88ad60edea",
+  "unchanged_evaluation_modules": {
+    "cache.py": "1b1c25ac85a799d1c38cd9ae91581333fab4f79ccd9622ddd7a057a34a5766d1",
+    "metrics.py": "452293e4448c054ca40a26f5ecd346a4c7bf0aeb68f469157323f1aa2776b567",
+    "encode.py": "a0b26f0d700c68cacff223c374d5fa77a5161c36d3563ce3075811671aaaedf9",
+    "demo.py": "4cc4a0d8c3ef97ce77d2b597ed6884797a8e7209cbe59679e8f020b265c5d9bf",
+    "__main__.py": "fd6ca56a34f71bbe23efbd7aeeaf35d5f6517c38d1d6b67e5b25839e8948cccf",
+    "convert_phase1.py": "efd16c446bd21bf80ea04af757476e15041ac812a137476aa4e494dfaf35db27",
+    "prompts.py": "9f5ce0df8e2b14b23cc5e077b7aba27d2afe8437277dd4565c3e1a90c88ef37d",
+    "data.py": "acf074f30e201359cdbe2b7a7472dc46347742eb9fe271c09f8aaba0c17c85a5",
+    "retrieval_core.py": "c2bed838339371c1648e9cfb76080251f3893d058e545766a60c8799fb1f9219",
+    "evaluate.py": "c2ea1f96556e8765303a1711eb1fc6942c59e1072b94ea12f0c57b01cc3e3203",
+    "config.py": "4cf79a33c342872e3983e95b8e27e79b57b2c0a72023e24a72fa4adfa96da3d4",
+    "preflight.py": "a879d257219d3d5993bb505ae3bc46d9eb2bdb5179d08ef11b0b41d5de32049e",
+    "legacy_encoders.py": "3a502ac20b218538980c72918ca9687685ba38fefef7023ed8a44ef49fb49502",
+    "lab.py": "387189571160baee5b94b86138e611023994dcad7786ddce405bff754791205d",
+    "selection.py": "0d389c21f741dcfd7141c9d00f75b957895653f8199f801bf9fb978aba674a63",
+    "__init__.py": "667d4a15b970b851e20d17510224670c14646cfb6d5a1e388ca6b9cc6da8bf41"
+  },
+  "training_source_sha256": {
+    "common.py": "45d8fdaeca4de85676494979f0700ddc66ffa8724aceb23aa5c82bb7c5642f2e",
+    "prepare.py": "d286a39d57afeb7d296dfc41634ac8466a1ad4c851cda96f9205ad7b5e126d82",
+    "verify.py": "f0cf7674da4ecf669dad12d136ff142a5e0af79b4bfa99e347e88259c035ccdc",
+    "train.py": "0b31e8f9629dcefee3efc1d8ae77f29ce91281728b3562e46728e46afb7f32ad",
+    "runtime_plugin.py": "a99546965f9741e0f6a1406f7f2ff487329734a179bf3237996bb4cdbececc70",
+    "validation_audit.py": "2ab5b8c5048b8a124c6d4e73a2c54f10924a2203354d1600c69d0a2180e17b47"
+  },
+  "changes": "portable paths; configurable tasks/directions; training sampler, InfoNCE scaling and metrics retained"
+}

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "funembed-training-eval"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26,<3"]
+[project.scripts]
+funembed = "funembed_train.cli:main"
+[tool.setuptools.packages.find]
+include = ["funembed_train*", "funembed_eval*"]
+[tool.setuptools.package-data]
+funembed_train = ["*.json", "*.txt"]

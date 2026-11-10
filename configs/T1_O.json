@@ -1,0 +1,64 @@
+{
+  "experiment_id": "T1_O_seed0",
+  "paths": {
+    "model_root": "${MODEL_ROOT}",
+    "data_root": "${DATA_ROOT}",
+    "private_input_root": "${PRIVATE_INPUT_ROOT}",
+    "swift_root": "${SWIFT_ROOT}",
+    "output_root": "${OUTPUT_ROOT}"
+  },
+  "tasks": {
+    "T1": 1
+  },
+  "directions": {
+    "T1": [
+      "O"
+    ]
+  },
+  "training": {
+    "steps": null,
+    "save_steps": null,
+    "world_size": 2,
+    "micro_batch": 1,
+    "grad_accum": 16,
+    "effective_query_batch": 32,
+    "K": 4,
+    "normal_fraction": 0.2,
+    "seed": 0,
+    "lr": 5e-05,
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "temperature": 0.1,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.05
+  },
+  "selection": {
+    "mode": "within_split",
+    "metric": "modal C_C/O_O/B_B NDCG@5 equal mean; exact tie earliest"
+  },
+  "evaluation": {
+    "case_protocol": "within_split",
+    "case_directions": [
+      "C-C",
+      "O-O",
+      "B-B",
+      "O-C",
+      "C-O"
+    ]
+  },
+  "lp_modalities": [
+    "C",
+    "O",
+    "B"
+  ],
+  "expected_classification_counts": {
+    "internal_train": 3784,
+    "val": 456,
+    "internal_test": 1038,
+    "external_test": 984
+  },
+  "validation_status": "CPU checked; lab source GPU evidence in docs/VALIDATION.md; portable GPU pending",
+  "stage_timeout_hours": 96,
+  "formal_budget": "not approved; --smoke sets finite budget"
+}
