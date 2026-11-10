@@ -10,6 +10,11 @@ def run(c,name,args,gpus=None,extra=None):
   if s.get('signature')!=signature:raise ValueError('stage command changed: '+name)
   if s['status']=='completed':return
   raise RuntimeError('stage incomplete/failed: inspect and use explicit resume, no automatic retry: '+name)
+ hardware=None
+ if gpus:
+  try:
+   hardware=subprocess.check_output(['nvidia-smi','-i',gpus,'--query-gpu=index,uuid,name,memory.total,driver_version','--format=csv'],text=True,timeout=5).strip()
+  except (OSError,subprocess.SubprocessError):pass
  log=w/'logs'/f'{name}.log';log.parent.mkdir(exist_ok=True);start=time.monotonic()
  with log.open('x',encoding='utf-8') as f:
   p=subprocess.Popen(command,env=e,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
@@ -20,7 +25,7 @@ def run(c,name,args,gpus=None,extra=None):
    try:p.wait(timeout=30)
    except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
    code=-9
- result=dict(status='completed' if code==0 else 'failed',signature=signature,command=command,log=str(log),exit_code=code,seconds=time.monotonic()-start,gpus=gpus);write(status,result)
+ result=dict(status='completed' if code==0 else 'failed',signature=signature,command=command,log=str(log),exit_code=code,seconds=time.monotonic()-start,gpus=gpus,hardware=hardware);write(status,result)
  if code:write(w/'status.json',dict(status='failed',stage=name,log=str(log)));raise RuntimeError(name+' failed: '+str(log))
 def prepare(c):
  inputs(c);w=work(c);resolved=w/'resolved.json'
