@@ -16,7 +16,7 @@ C为一张CFP；O为007–012六张OCT联合输入；B为CFP在前、六张OCT�
 | original_2B.json | 无训练，同条件检索与LP | 0 | 原实现GPU有证据，交付入口CPU通过 |
 | T1_C.json / T1_O.json | 单模态图文 | 未指定；提供短测 | 采样CPU通过 |
 | T1_B_historical.json | 仅B图文，四卡micro2×GA4 | 1183 | 历史原实现完成；交付复现未跑 |
-| T1_COB.json | 三方向图文1:1:1 | 1200 | 当前实验室短测由已有队列执行 |
+| T1_COB.json | 三方向图文1:1:1 | 1200 | 原实现K4双卡GA16六步短测通过 |
 | T2.json | 三方向病例1:1:1 | 1200 | 原实现正式训练完成 |
 | T2_historical.json | 保留val→train选模 | 1200 | 原实现历史协议 |
 | T3.json | C→O、O→C等比例 | 未指定；提供短测 | 独立交付GPU短测待执行 |
