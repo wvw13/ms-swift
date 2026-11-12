@@ -51,7 +51,7 @@ def main():
   import time,shutil
   state=w/'stages'/f'{a.stage}.json';old=read(state)
   if old['status']=='completed':raise ValueError('completed stages cannot be reset')
-  if old.get('pid'):
+  if old.get('pid') and old.get('exit_code') is None:
    try:os.kill(old['pid'],0)
    except ProcessLookupError:pass
    else:raise RuntimeError('recorded PID still exists; inspect process before retry')
@@ -79,7 +79,7 @@ def main():
   if a.checkpoint is None:p.error('--checkpoint required; 0 is original model')
   wf.evaluation(c,a.checkpoint,a.split,a.gpus.split(',')[0]);return
  if a.action=='select':
-  steps=c.get('candidate_steps') or list(range(c['training']['save_steps'],c['training']['steps']+1,c['training']['save_steps']));wf.select(c,steps,[w/'evaluation'/f'checkpoint-{s}'/'val/results/summary.json' for s in steps]);return
+  steps=wf.candidate_steps(c);wf.select(c,steps,[w/'evaluation'/f'checkpoint-{s}'/'val/results/summary.json' for s in steps]);return
  if a.action=='lp':
   if a.checkpoint is None:p.error('--checkpoint required')
   wf.lp(c,a.checkpoint,a.modality,a.gpus.split(',')[0]);return

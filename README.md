@@ -105,6 +105,8 @@ python -m funembed_train run --config configs/E3.json --gpus 0,1
 python -m funembed_train run --config configs/E4.json --gpus 0,1
 ```
 
+自定义预算默认选择所有定期保存点及最终步（例如1000/120包含1000；50/120包含50）。显式candidate_steps仅选择指定子集，必须为非空、无重复且保存计划可生成的整数列表。训练前校验计划，评测/选模前检查checkpoint及恢复状态文件完整性；单候选也按同一验证指标记录选择依据。
+
 T1-C、T1-O、T3未预设正式长训练预算，未填写`training.steps`时正式入口拒绝运行；短测无需补预算。选择单方向只改JSON：例如`tasks={"T3":1}`、`directions={"T3":["C-O"]}`；T2单方向同理。训练方向与`evaluation.case_directions`独立，单方向训练仍可评测五方向。
 
 建议screen内运行：
@@ -121,6 +123,8 @@ screen -S funembed_external
 LoRA语言侧q/k/v/o及gate/up/down，默认rank16/alpha32/dropout0.05；原主干、视觉与连接层冻结。单正例InfoNCE温度0.1、AdamW、lr5e-5、WD0.01、cosine、warmup0.05。训练与检索每图1024图像token、8192上限、BF16/SDPA，检索batch1。参数可在training对象修改；变化后使用新experiment_id。
 
 ## 6. 恢复与分阶段操作
+
+Ctrl+C或SIGTERM会将本次子进程组请求退出，默认等待30秒后强制清理剩余进程并回收子进程；阶段记录为interrupted。不会清理其他任务；SIGKILL无法捕获。确认日志中的最后完整checkpoint后使用下面的resume；从头重试某失败阶段须先执行retry-stage归档现场。
 
 保留同卡数、micro/GA、配置及数据日程。不要把短测checkpoint作为正式训练起点，不默认支持改变卡数恢复。
 ```bash
@@ -147,7 +151,7 @@ python -m funembed_train lp --config configs/E3.json --checkpoint 960 --modality
 
 检索：Hit/Recall/NDCG@1/3/5，modal/combined独立；图文仍是22类文本。病例排除自身、同中心患者及共享影像MD5，然后计算相关集合、Recall分母与IDCG。Jaccard线性gain、并列排序及无相关候选处理复用原评测代码。输出有效数量、无相关候选和覆盖率。
 
-LP：使用独立分类指令及原分类像素预算，不能复用I1检索缓存；冻结编码器，只训练Linear(2048,22)，综合标签、共同完整病例队列，BCE/AdamW，头batch256、最多1500轮/patience60，三头seed0/1/2；验证mAP选头、验证micro-F1选阈值后固定到测试。AUC指逐疾病ROC曲线下面积的宏平均。分类头三种子不代表三次编码器训练。
+LP：使用独立分类指令及原分类像素预算，不能复用I1检索缓存；冻结编码器，只训练Linear(2048,22)，综合标签、共同完整病例队列，BCE/AdamW，头batch256、最多1500轮/patience60，三头seed0/1/2；验证mAP选头、验证micro-F1选阈值后固定到测试。AUC指逐疾病ROC曲线下面积的宏平均。分类头三种子不代表三次编码器训练。LP汇总JSON/CSV分别记录实际training.seed与head_seed；原始未训练模型的encoder_training_seed为null（CSV空值），导出保留同一字段。
 
 输出结构：
 ```

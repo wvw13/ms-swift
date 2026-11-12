@@ -67,7 +67,7 @@ def inspect(path):
  return {'step':step,'checkpoint':adapter,'directions':scores,'score':sum(scores.values())/3,'result':str(p.resolve()),'sha256':sha(p),'diagnostics':{k:v for k,v in r['tasks'].items() if k not in TASKS}},contract
 
 def select(paths):
- if len(paths)<2:raise ValueError('at least two completed candidates required')
+ if not paths:raise ValueError('at least one completed candidate required')
  entries=[];reference=None
  for p in paths:
   item,contract=inspect(p)

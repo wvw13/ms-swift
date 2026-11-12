@@ -2,6 +2,8 @@ from pathlib import Path
 import os,sys,subprocess,time,signal,json,copy,math,hashlib
 from .config import *
 from .inputs import prepare as inputs
+from .candidates import candidate_steps,check_checkpoint
+from .processes import interrupt_handlers,stop_group
 V=Path(__file__).parent/'vendor/v1'
 def run(c,name,args,gpus=None,extra=None):
  w=work(c);w.mkdir(parents=True,exist_ok=True);status=w/'stages'/f'{name}.json';command=[str(x) for x in args];e=env(c,gpus);e.update(extra or {});signature=hashlib.sha256(json.dumps({'command':command,'extra':extra,'gpus':gpus},sort_keys=True).encode()).hexdigest()
@@ -16,18 +18,26 @@ def run(c,name,args,gpus=None,extra=None):
    hardware=subprocess.check_output(['nvidia-smi','-i',gpus,'--query-gpu=index,uuid,name,memory.total,driver_version','--format=csv'],text=True,timeout=5).strip()
   except (OSError,subprocess.SubprocessError):pass
  log=w/'logs'/f'{name}.log';log.parent.mkdir(exist_ok=True);start=time.monotonic()
- with log.open('x',encoding='utf-8') as f:
-  p=subprocess.Popen(command,env=e,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-  write(status,dict(status='running',pid=p.pid,signature=signature,command=command,log=str(log),gpus=gpus));write(w/'status.json',dict(status='running',stage=name,pid=p.pid,log=str(log)))
-  try:code=p.wait(timeout=c.get('stage_timeout_hours',96)*3600)
-  except subprocess.TimeoutExpired:
-   os.killpg(p.pid,signal.SIGTERM)
-   try:p.wait(timeout=30)
-   except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
-   code=-9
+ p=None;reason=None;interrupted=False;cleaned=False
+ try:
+  with interrupt_handlers(),log.open('x',encoding='utf-8') as f:
+   p=subprocess.Popen(command,env=e,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+   write(status,dict(status='running',pid=p.pid,signature=signature,command=command,log=str(log),gpus=gpus));write(w/'status.json',dict(status='running',stage=name,pid=p.pid,log=str(log)))
+   try:code=p.wait(timeout=c.get('stage_timeout_hours',96)*3600)
+   except BaseException as error:
+    interrupted=isinstance(error,KeyboardInterrupt);reason=type(error).__name__+': '+str(error)
+    stop_group(p,c.get('termination_grace_seconds',30));cleaned=True
+    raise
+ except BaseException as error:
+  if p is not None and not cleaned:stop_group(p,c.get('termination_grace_seconds',30))
+  result=dict(status='interrupted' if interrupted or isinstance(error,KeyboardInterrupt) else 'failed',pid=p.pid if p else None,signature=signature,command=command,log=str(log),exit_code=p.returncode if p else None,reason=reason or repr(error),seconds=time.monotonic()-start,gpus=gpus,hardware=hardware,resume='inspect complete checkpoint, then resume; retry-stage archives interrupted stage for explicit retry')
+  write(status,result);write(w/'status.json',result|{'stage':name});raise
+ if code:stop_group(p,c.get('termination_grace_seconds',30))
  result=dict(status='completed' if code==0 else 'failed',signature=signature,command=command,log=str(log),exit_code=code,seconds=time.monotonic()-start,gpus=gpus,hardware=hardware);write(status,result)
- if code:write(w/'status.json',dict(status='failed',stage=name,log=str(log)));raise RuntimeError(name+' failed: '+str(log))
+ if code:write(w/'status.json',result|{'stage':name});raise RuntimeError(name+' failed: '+str(log))
+
 def prepare(c):
+ candidate_steps(c)
  inputs(c);w=work(c);resolved=w/'resolved.json'
  if resolved.exists() and read(resolved)!=c:raise ValueError('resolved config changed, use new experiment_id')
  write(resolved,c);t=c['training']
@@ -37,7 +47,9 @@ def prepare(c):
  args=[sys.executable,V/'prepare.py','--base',w/'inputs/phase2','--output',w/'pairs','--experiment','CUSTOM','--cfp-definitions',w/'inputs/definition_C.json','--oct-definitions',w/'inputs/definition_O.json','--text-kind','definition','--steps',str(t['steps']),'--world-size',str(t['world_size']),'--micro-batch',str(t['micro_batch']),'--grad-accum',str(t['grad_accum']),'--normal-fraction',str(t['normal_fraction']),'--seed',str(t['seed']),'--negatives',str(t['K']),'--task-weights',json.dumps(c['tasks']),'--directions-json',json.dumps(c['directions'])]
  run(c,'prepare_pairs',args);run(c,'verify_pairs',[sys.executable,V/'verify.py',w/'pairs'])
 def train(c,gpus,resume=None,stop=None):
+ candidate_steps(c)
  t=c['training'];w=work(c)
+ if resume:check_checkpoint(c,int(Path(resume).name.split('-')[-1]))
  if len(gpus.split(','))!=t['world_size']:raise ValueError('GPU count differs from frozen schedule')
  args=[sys.executable,V/'train.py','--pairs',w/'pairs','--output',w/'train','--model',c['paths']['model_root'],'--gpus',gpus,'--image-max-tokens','1024','--max-length','8192','--learning-rate',str(t['lr']),'--lora-rank',str(t.get('lora_rank',16)),'--lora-alpha',str(t.get('lora_alpha',32)),'--lora-dropout',str(t.get('lora_dropout',.05)),'--temperature',str(t.get('temperature',.1)),'--attn-impl','sdpa','--save-steps',str(t['save_steps']),'--save-total-limit','0','--warmup-ratio',str(t.get('warmup_ratio',.05)),'--weight-decay',str(t.get('weight_decay',.01)),'--execute']
  extra={}
@@ -47,6 +59,7 @@ def train(c,gpus,resume=None,stop=None):
  name='train'+('_stop'+str(stop) if stop else '')+('_resume'+Path(resume).name if resume else '')
  run(c,name,args,gpus,extra)
 def evaluation(c,step,split,gpu,adapter=None):
+ if step:check_checkpoint(c,step)
  w=work(c);tag='original' if step==0 else f'checkpoint-{step}';d=w/'evaluation'/tag/split;protocol=c['evaluation'].get('case_protocol','within_split');cfg=dict(manifest=str(w/'inputs/manifest.jsonl'),classes=str(w/'inputs/classes.json'),texts=str(w/'inputs/texts.json'),image_root=c['paths']['data_root'],cache=str(d/'cache'),output=str(d/'results'),query_split=split,gallery_split=split if protocol=='within_split' else 'internal_train',case_protocol=protocol,protocol_id='linyan_I1_joint_'+protocol+('_short_fixed_subset' if c.get('smoke') else '_batch1'),instruction='I1',aggregation='joint',cohort='input_available',protocols=['modal','combined'],case_directions=c['evaluation']['case_directions'],text_modalities=list('COB'),text_kind='definition',evaluate_text=True,encoder=dict(backend='swift',model=c['paths']['model_root'],adapter=str(adapter or w/'train'/tag) if step else None,framework_path=c['paths']['swift_root'],model_type='qwen3_vl_emb',template_type='qwen3_vl_emb',representation='swift_embedding',batch_size=1,image_max_tokens=1024,max_length=8192,device='cuda:0'))
  if c.get('smoke'):
   ids=[json.loads(l)['case_id'] for l in (w/'inputs/manifest.jsonl').read_text().splitlines() if json.loads(l)['split']==split][:16];cfg['query_ids']=ids;cfg['gallery_ids']=ids
@@ -63,8 +76,10 @@ def lp(c,step,m,gpu,stage='all',tiny=False):
  if tiny:args+=['--tiny']
  run(c,f'LP_{step}_{m}_{stage}',args,gpu)
  from .lp_summary import summarize
- summarize(w/'lp'/f'checkpoint-{step}'/m)
+ summarize(w/'lp'/f'checkpoint-{step}'/m,encoder_training_seed=None if c.get('baseline') or step==0 else c['training']['seed'])
 def select(c,steps,summaries):
+ if steps!=candidate_steps(c):raise ValueError('candidate list differs from configured plan')
+ for step in steps:check_checkpoint(c,step)
  w=work(c);mode=c['selection']['mode']
  if mode=='within_split':
   from .select_within import select as selector
@@ -98,7 +113,20 @@ def finish_export(c):
 
 def full(c,gpus):
  import fcntl
- w=work(c);w.mkdir(parents=True,exist_ok=True);lock=(w/'.workflow.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ w=work(c);w.mkdir(parents=True,exist_ok=True)
+ with (w/'.workflow.lock').open('a') as lock:
+  fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  try:
+   with interrupt_handlers():return _full(c,gpus)
+  except BaseException as error:
+   state=read(w/'status.json') if (w/'status.json').exists() else {}
+   if state.get('status') not in ('interrupted','failed'):
+    write(w/'status.json',state|{'status':'interrupted' if isinstance(error,KeyboardInterrupt) else 'failed','reason':repr(error)})
+   raise
+  finally:fcntl.flock(lock,fcntl.LOCK_UN)
+
+def _full(c,gpus):
+ w=work(c)
 
  previous=read(w/'status.json') if (w/'status.json').exists() else {}
  if (w/'export_ready.json').exists() or previous.get('status')=='completed':
@@ -117,7 +145,7 @@ def full(c,gpus):
    from .acceptance import check_training
    os.environ.update(env(c));check_training(c)
   else:train(c,gpus)
-  steps=c.get('candidate_steps') or list(range(t['save_steps'],t['steps']+1,t['save_steps']))
+  steps=candidate_steps(c)
   summaries=[]
   for step in steps:
    summaries.append(evaluation(c,step,'val',gpu))

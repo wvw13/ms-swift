@@ -40,3 +40,11 @@ CPU执行68项测试，50个test函数定义：继承/导入造成重复执行�
 新增11个测试：压缩失败保留partial、验证失败不发布、只恢复导出、completed损坏包识别/保留/重建、正常重复验证复用、有效不同包拒绝覆盖、gzip截断/路径逃逸拒绝、配置变化拒绝恢复、清单SHA错误拒绝、Python版本提前拒绝、选模后小测试检索及tiny LP入口调度。共68项执行，50个函数定义。
 
 smoke补充固定选中checkpoint的internal/external各16例检索及tiny分类测试入口，标签/图像协议保持，短测结果不进入研究成绩。T3为2→4、E3为5→10、E4为8→16，训练预算不变。新交付GPU验证未执行：GPU0/1 zmx，GPU2/3用户T1正式训练，无空闲双卡；不创建等待队列。
+
+## 2026-11-12 中断、seed与预算回归
+
+本轮81项CPU执行通过（63个测试定义）；新增13项覆盖SIGINT/SIGTERM真实Linux父子孙进程退出、无关进程存活、retry-stage再运行、超时升级SIGKILL、信号处理器恢复、锁释放、seed0/7/原模型null及导出、保存计划和最终步检查。单候选选择也通过合成结果导出闭环。
+
+锁定Transformers4.57.3 DefaultFlowCallback在max_steps且save_strategy=steps时设置should_save；CPU直接调用该回调验证50/120、1000/120、1200/120最终保存。checkpoint检查覆盖adapter、trainer_state、optimizer、scheduler及各rank RNG文件与步数。未加载GPU模型，未验证文件内张量的数值恢复；此前GPU恢复证据保持原范围。
+
+本轮不重跑GPU。InfoNCE、采样、图像预算、LoRA、特征提取与指标公式均未改；修改仅为流程管理、元信息和候选计划。
