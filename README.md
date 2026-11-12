@@ -2,6 +2,17 @@
 
 本包用于在模型所在环境内完成眼科单向量表征训练和评测，最后带回汇总结果。影像不随代码交付。当前模型入口为 Qwen3-VL-Embedding-2B，直接编码输入、提取末尾有效 token 并归一化，不先生成诊断。
 
+## 获取本版本
+
+本分支在仓库根目录提供完整的 FunEmbed 训练与评测包，包含 `funembed_train/`、`funembed_eval/`、`configs/` 和本文档。无需混装旧 `funembed/unified-eval-20261107` 评测分支；旧分支保留用于原交付版本。
+
+```bash
+git clone --single-branch --branch external/training-eval-20261110 https://github.com/wvw13/ms-swift.git funembed-training-eval
+cd funembed-training-eval
+```
+
+以下安装和运行命令均从此目录执行。这个分支是独立交付代码树，不是训练依赖的 ms-swift 框架源码；后者按第2节单独克隆并锁定版本。仓库默认分支和旧评测分支均保持原内容。
+
 ## 1. 任务与配置
 
 - **T1**：C/O/B影像分别检索对应疾病视觉定义。每行一正例、K个互异显式负例；多标签其他阳性不进入负例。
@@ -34,8 +45,8 @@ python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install 'torch==2.9.1' 'torchvision==0.24.1' --index-url https://download.pytorch.org/whl/cu128
 # 使用锁定的官方框架源码，不以任意最新版替代
- git clone https://github.com/modelscope/ms-swift.git framework
- git -C framework checkout 21ada46205e0abfc6ab33ef8b6dd260cc4eccf8d
+git clone https://github.com/modelscope/ms-swift.git framework
+git -C framework checkout 21ada46205e0abfc6ab33ef8b6dd260cc4eccf8d
 python -m pip install -c constraints-tested.txt -e ./framework
 python -m pip install -c constraints-tested.txt transformers peft accelerate numpy Pillow qwen-vl-utils scikit-learn tensorboard safetensors
 python -m pip install --no-deps .
@@ -53,7 +64,7 @@ export SWIFT_ROOT="$PWD/framework"
 export OUTPUT_ROOT=/your/outputs/funembed
 ```
 
-PRIVATE_INPUT_ROOT需要`manifest.jsonl`、`classes.json`、`texts.json`。这三份正式文件通过实验室私下交接，不在代码包内。影像已交付不代表这三份文件已到位，请先核对。字段和映射见[数据与协议](docs/PROTOCOL.md)。相对影像路径按DATA_ROOT解释。预检查保留ID、标签、划分、图像顺序和内容MD5；迁移后文件时间不同会核对内容MD5，再在本地生成规范化元数据。不会复制影像。
+PRIVATE_INPUT_ROOT需要`manifest.jsonl`、`classes.json`、`texts.json`。这三份正式文件沿用qkh此前的私下交付，放在上述PRIVATE_INPUT_ROOT目录中，不在公开仓库内。影像已交付不代表这三份文件已到位，请先核对。字段和映射见[数据与协议](docs/PROTOCOL.md)。相对影像路径按DATA_ROOT解释。预检查保留ID、标签、划分、图像顺序和内容MD5；迁移后文件时间不同会核对内容MD5，再在本地生成规范化元数据。不会复制影像。
 
 也可通过`--paths paths.json`覆盖五个路径；相对路径以配置文件所在目录解析。示例`configs/paths.example.json`单独用于`--paths`，不是实验配置。
 
