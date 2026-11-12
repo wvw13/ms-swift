@@ -1,0 +1,122 @@
+[
+  {
+    "experiment": "T3",
+    "status": "passed",
+    "code_commit_executed": "30d9b747530540e9c985eb1387456aff915dee64",
+    "runtime_sources_match_current": true,
+    "updates": 4,
+    "query_exposures": 128,
+    "direction_updates": {
+      "O-C": 2,
+      "C-O": 2
+    },
+    "resume": {
+      "status": "passed",
+      "optimizer_exact": true,
+      "scheduler_exact": true,
+      "lora_exact": true,
+      "RNG_files_complete": true,
+      "RNG_restoration": "standard Transformers Trainer resume; row schedule verified by actual rank traces",
+      "world_size": 2,
+      "resume_step": 2,
+      "final_step": 4
+    },
+    "selected_step": 2,
+    "validation_mean_NDCG5": 0.522268927751424,
+    "memory_per_rank": {
+      "0": {
+        "allocated_GiB": 28.421261310577393,
+        "reserved_GiB": 32.712890625
+      },
+      "1": {
+        "allocated_GiB": 28.421261310577393,
+        "reserved_GiB": 32.712890625
+      }
+    },
+    "stage_seconds": 1215.7700753267854,
+    "allocated_GPU_hours": 0.5980095402487657
+  },
+  {
+    "experiment": "E3",
+    "status": "passed",
+    "code_commit_executed": "30d9b747530540e9c985eb1387456aff915dee64",
+    "runtime_sources_match_current": true,
+    "updates": 10,
+    "query_exposures": 320,
+    "direction_updates": {
+      "O-C": 2,
+      "C-O": 2,
+      "O-O": 2,
+      "B-B": 2,
+      "C-C": 2
+    },
+    "resume": {
+      "status": "passed",
+      "optimizer_exact": true,
+      "scheduler_exact": true,
+      "lora_exact": true,
+      "RNG_files_complete": true,
+      "RNG_restoration": "standard Transformers Trainer resume; row schedule verified by actual rank traces",
+      "world_size": 2,
+      "resume_step": 5,
+      "final_step": 10
+    },
+    "selected_step": 5,
+    "validation_mean_NDCG5": 0.49877225740451964,
+    "memory_per_rank": {
+      "0": {
+        "allocated_GiB": 33.70540809631348,
+        "reserved_GiB": 45.9375
+      },
+      "1": {
+        "allocated_GiB": 33.70540809631348,
+        "reserved_GiB": 45.9375
+      }
+    },
+    "stage_seconds": 2083.8848826084286,
+    "allocated_GPU_hours": 1.0764408165392363
+  },
+  {
+    "experiment": "E4",
+    "status": "passed",
+    "code_commit_executed": "30d9b747530540e9c985eb1387456aff915dee64",
+    "runtime_sources_match_current": true,
+    "updates": 16,
+    "query_exposures": 512,
+    "direction_updates": {
+      "O-C": 2,
+      "C-O": 2,
+      "O-O": 2,
+      "O": 2,
+      "C": 2,
+      "B-B": 2,
+      "B": 2,
+      "C-C": 2
+    },
+    "resume": {
+      "status": "passed",
+      "optimizer_exact": true,
+      "scheduler_exact": true,
+      "lora_exact": true,
+      "RNG_files_complete": true,
+      "RNG_restoration": "standard Transformers Trainer resume; row schedule verified by actual rank traces",
+      "world_size": 2,
+      "resume_step": 8,
+      "final_step": 16
+    },
+    "selected_step": 8,
+    "validation_mean_NDCG5": 0.5172679183604353,
+    "memory_per_rank": {
+      "0": {
+        "allocated_GiB": 33.70508146286011,
+        "reserved_GiB": 46.265625
+      },
+      "1": {
+        "allocated_GiB": 33.70508146286011,
+        "reserved_GiB": 46.265625
+      }
+    },
+    "stage_seconds": 2928.50209993124,
+    "allocated_GPU_hours": 1.5466311582007135
+  }
+]

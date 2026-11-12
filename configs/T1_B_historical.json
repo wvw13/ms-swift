@@ -58,7 +58,7 @@
     "internal_test": 1038,
     "external_test": 984
   },
-  "validation_status": "CPU checked; lab source GPU evidence in docs/VALIDATION.md; portable GPU pending",
+  "validation_status": "See docs/GPU_VALIDATION.md for task/direction/entry coverage; external first-run smoke required",
   "stage_timeout_hours": 96,
   "candidate_steps": [
     119,
